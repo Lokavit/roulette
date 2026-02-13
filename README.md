@@ -21,6 +21,13 @@
 - 高能量任務（90~120 分鐘）
 - 任務類型 tag（寫作/前端/Linux/學習）
 
+### 追加功能
+
+- 任務池管理（新增/編輯/禁用）
+- cooldownDays / repeatable 的真正生效
+- 統計面板（本週完成率、能量分佈）
+- 讓 yearLog 讀取/保存更無腦（自動提示未保存）
+
 ### 技術棧
 
 - React + TypeScript + Vite + Tailwind
@@ -116,3 +123,35 @@ summary: "写了角色卡：李无名"
 - fimaly 王族: 關於父母、兄弟、親戚。
 - fuck 黑暗道：一些不願回憶的往事。
 - nomad 流浪： 記錄離家後四處亂跑遇到的人和事。
+
+<!--
+Linux 終端版
+用 Node.js / Python / Go 寫一個命令行：
+roulette init
+roulette spin
+roulette accept
+roulette done
+roulette status
+roulette week
+roulette timeline
+
+沿用你的 JSON schema（TaskPool / YearLog）
+ASCII 翻牌動畫
+彩色輸出（能量 badge）
+5 秒冷卻倒計時（終端進度條）
+
+我的設想是，發佈爲Linux包，使用命令安裝，命令運行，應用沒有GUI，是一個與Terminal類似的終端風格窗口。功能與規則和Web版本一致。可以加上指定文件夾，文件夾中的內容如下：
+- 讀取任務池文件.json
+- 讀取歷年的所有.json文件
+- 任務完成的編輯，編輯後插入到當年.json的第一個元素中。
+- 支持git命令，一鍵push到github。
+- 其他，儘量還原Web版本的佈局。
+
+方案 1：Cargo / Rust（最像 Linux 工具）
+写 Rust TUI（ratatui）
+发布 binary
+提供 .deb / .rpm / AUR
+用户 sudo dpkg -i 或 pacman -S roulette
+这条路线最硬核，也最像你描述的“系统级应用”。
+
+ -->
