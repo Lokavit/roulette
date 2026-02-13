@@ -1,0 +1,105 @@
+@import "tailwindcss";
+:root {
+  --font-main: "PingFang TC", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  --transition-speed: 0.4s;
+  --line-height: 1.9;
+  --background: #121212;
+  --surface: #161616;
+  --accent: #4eee85;
+  --text: #efefef;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  padding: 2em;
+  background-color: var(--background);
+  color: var(--accent);
+  min-height: 100vh;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans",
+    sans-serif;
+  font-size: 14px;
+  line-height: var(--line-height);
+}
+
+input,
+textarea,
+button {
+  font: inherit;
+  color: inherit;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--background);
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* 網站的css */
+header {
+  border-bottom: dashed 1px var(--accent);
+  padding-bottom: 2em;
+  margin-bottom: 2em;
+}
+h1 {
+  color: var(--accent);
+  margin-bottom: 0.5em;
+}
+.header_site_name {
+  font-size: 24px;
+  color: var(--accent);
+  font-weight: 900;
+  border-bottom: 2px solid var(--accent);
+  display: inline-block;
+}
+.header_site_name a {
+  text-decoration: none;
+  color: inherit;
+}
+.header_site_tip {
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  opacity: 0.7;
+  color: var(--accent);
+}
+
+.container {
+  max-width: 1280px;
+  text-align: center;
+  background: var(--background);
+  padding: 40px;
+  border-radius: 8px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--foreground);
+}
+
+.tile-title {
+  color: var(--accent);
+  font-size: 1.2rem;
+  font-weight: bold;
+  letter-spacing: 1px;
+  margin-top: 3em;
+}
+
+.line-dashed {
+  margin: 1em;
+  border: 1px dashed var(--accent);
+  opacity: 0.1;
+}

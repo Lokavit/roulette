@@ -1,0 +1,618 @@
+{
+    "version": 1,
+    "updatedAt": "2026-02-13",
+    "tasks": [
+        {
+            "id": "task_write_001",
+            "title": "写一段人物外貌描写",
+            "description": "为一个角色写一段外貌描写，重点写气质、动作、衣物细节，不要写五官清单。",
+            "energy": "low",
+            "duration": {
+                "min": 10,
+                "max": 20
+            },
+            "tags": [
+                "writing",
+                "character"
+            ],
+            "output": {
+                "type": "text",
+                "suggestedPath": "./writing/snippets/"
+            },
+            "rules": {
+                "repeatable": true,
+                "cooldownDays": 3
+            }
+        },
+        {
+            "id": "task_write_002",
+            "title": "写一段人物说话方式",
+            "description": "给一个角色写5句典型台词，表现他的性格、身份、教育程度、情绪习惯。",
+            "energy": "low",
+            "duration": {
+                "min": 10,
+                "max": 20
+            },
+            "tags": [
+                "writing",
+                "dialogue",
+                "character"
+            ],
+            "output": {
+                "type": "text",
+                "suggestedPath": "./writing/characters/"
+            },
+            "rules": {
+                "repeatable": true,
+                "cooldownDays": 3
+            }
+        },
+        {
+            "id": "task_write_003",
+            "title": "写一个童年小故事（200字）",
+            "description": "写一个真实童年片段，200~400字，要求有场景、有对话、有结尾。",
+            "energy": "low",
+            "duration": {
+                "min": 15,
+                "max": 25
+            },
+            "tags": [
+                "writing",
+                "memoir",
+                "life"
+            ],
+            "output": {
+                "type": "text",
+                "suggestedPath": "./writing/memoir/"
+            },
+            "rules": {
+                "repeatable": true,
+                "cooldownDays": 5
+            }
+        },
+        {
+            "id": "task_write_004",
+            "title": "写一段环境描写（雪/雨/夜）",
+            "description": "选择雪、雨或夜，写一段环境描写，让读者能感受到温度、声音和空气。",
+            "energy": "low",
+            "duration": {
+                "min": 15,
+                "max": 25
+            },
+            "tags": [
+                "writing",
+                "scene"
+            ],
+            "output": {
+                "type": "text",
+                "suggestedPath": "./writing/snippets/"
+            },
+            "rules": {
+                "repeatable": true,
+                "cooldownDays": 3
+            }
+        },
+        {
+            "id": "task_write_005",
+            "title": "写一个武侠招式设定",
+            "description": "为一个门派或人物设定一招武功：名字、动作、使用条件、弱点、江湖传闻。",
+            "energy": "medium",
+            "duration": {
+                "min": 30,
+                "max": 60
+            },
+            "tags": [
+                "writing",
+                "wuxia",
+                "worldbuilding"
+            ],
+            "output": {
+                "type": "text",
+                "suggestedPath": "./writing/wuxia/"
+            },
+            "rules": {
+                "repeatable": true,
+                "cooldownDays": 7
+            }
+        },
+        {
+            "id": "task_write_006",
+            "title": "写一段剧情冲突（角色A vs 角色B）",
+            "description": "设定两个人发生冲突，写出他们各自的立场、误解、底线，并给出冲突爆发点。",
+            "energy": "medium",
+            "duration": {
+                "min": 30,
+                "max": 60
+            },
+            "tags": [
+                "writing",
+                "plot"
+            ],
+            "output": {
+                "type": "text",
+                "suggestedPath": "./writing/plot/"
+            },
+            "rules": {
+                "repeatable": true,
+                "cooldownDays": 5
+            }
+        },
+        {
+            "id": "task_write_007",
+            "title": "写一个角色卡（简版）",
+            "description": "写一个角色卡：姓名、身份、目标、恐惧、秘密、说话方式、武功/技能、与主角关系。",
+            "energy": "medium",
+            "duration": {
+                "min": 40,
+                "max": 70
+            },
+            "tags": [
+                "writing",
+                "character",
+                "card"
+            ],
+            "output": {
+                "type": "text",
+                "suggestedPath": "./writing/characters/"
+            },
+            "rules": {
+                "repeatable": true,
+                "cooldownDays": 7
+            }
+        },
+        {
+            "id": "task_write_008",
+            "title": "写一个伏笔（并设计回收方式）",
+            "description": "设计一个伏笔：出现方式、误导读者的角度、真正意义、回收章节或回收场景。",
+            "energy": "medium",
+            "duration": {
+                "min": 30,
+                "max": 60
+            },
+            "tags": [
+                "writing",
+                "plot",
+                "foreshadowing"
+            ],
+            "output": {
+                "type": "text",
+                "suggestedPath": "./writing/plot/"
+            },
+            "rules": {
+                "repeatable": true,
+                "cooldownDays": 7
+            }
+        },
+        {
+            "id": "task_write_009",
+            "title": "写一章章纲（粗略版）",
+            "description": "写一个章节大纲：开场、事件推进、冲突、转折、结尾钩子，控制在10条以内。",
+            "energy": "high",
+            "duration": {
+                "min": 90,
+                "max": 120
+            },
+            "tags": [
+                "writing",
+                "outline"
+            ],
+            "output": {
+                "type": "text",
+                "suggestedPath": "./writing/outline/"
+            },
+            "rules": {
+                "repeatable": true,
+                "cooldownDays": 10
+            }
+        },
+        {
+            "id": "task_write_010",
+            "title": "写一段完整短篇（800~1500字）",
+            "description": "写一个独立短篇，有开端发展高潮结尾，字数800~1500，要求有一个明确转折。",
+            "energy": "high",
+            "duration": {
+                "min": 90,
+                "max": 150
+            },
+            "tags": [
+                "writing",
+                "shortstory"
+            ],
+            "output": {
+                "type": "text",
+                "suggestedPath": "./writing/shortstory/"
+            },
+            "rules": {
+                "repeatable": true,
+                "cooldownDays": 14
+            }
+        },
+        {
+            "id": "task_frontend_001",
+            "title": "写一个可复用 Button 组件",
+            "description": "用 React + TS 写一个 Button 组件，支持 variant/size/disabled/loading，并写简单 demo。",
+            "energy": "medium",
+            "duration": {
+                "min": 40,
+                "max": 70
+            },
+            "tags": [
+                "frontend",
+                "react",
+                "typescript",
+                "component"
+            ],
+            "output": {
+                "type": "code",
+                "suggestedPath": "./projects/ui-components/"
+            },
+            "rules": {
+                "repeatable": true,
+                "cooldownDays": 7
+            }
+        },
+        {
+            "id": "task_frontend_002",
+            "title": "做一个极简 Markdown 渲染页面",
+            "description": "用 Vite 做一个页面：左边 textarea 输入 markdown，右边实时预览渲染。",
+            "energy": "medium",
+            "duration": {
+                "min": 40,
+                "max": 80
+            },
+            "tags": [
+                "frontend",
+                "vite",
+                "markdown",
+                "react"
+            ],
+            "output": {
+                "type": "repo",
+                "suggestedPath": "./projects/markdown-preview/"
+            },
+            "rules": {
+                "repeatable": false,
+                "cooldownDays": 30
+            }
+        },
+        {
+            "id": "task_frontend_003",
+            "title": "做一个任务卡 UI（静态）",
+            "description": "写一个任务卡 UI：title/desc/tags/energy/duration/status，做成漂亮的卡片布局。",
+            "energy": "low",
+            "duration": {
+                "min": 20,
+                "max": 40
+            },
+            "tags": [
+                "frontend",
+                "ui",
+                "css"
+            ],
+            "output": {
+                "type": "code",
+                "suggestedPath": "./projects/todo-center/"
+            },
+            "rules": {
+                "repeatable": true,
+                "cooldownDays": 5
+            }
+        },
+        {
+            "id": "task_frontend_004",
+            "title": "实现一个时间线组件（Timeline）",
+            "description": "写一个 Timeline UI：按日期显示卡片节点，支持 done/skip 状态样式区分。",
+            "energy": "high",
+            "duration": {
+                "min": 90,
+                "max": 140
+            },
+            "tags": [
+                "frontend",
+                "react",
+                "timeline"
+            ],
+            "output": {
+                "type": "code",
+                "suggestedPath": "./projects/todo-center/"
+            },
+            "rules": {
+                "repeatable": false,
+                "cooldownDays": 30
+            }
+        },
+        {
+            "id": "task_frontend_005",
+            "title": "写一个个人网站作品展示页",
+            "description": "写一个 Projects 页面：展示项目卡片、链接、截图占位、标签筛选。",
+            "energy": "high",
+            "duration": {
+                "min": 90,
+                "max": 150
+            },
+            "tags": [
+                "frontend",
+                "portfolio"
+            ],
+            "output": {
+                "type": "repo",
+                "suggestedPath": "./projects/portfolio/"
+            },
+            "rules": {
+                "repeatable": false,
+                "cooldownDays": 30
+            }
+        },
+        {
+            "id": "task_linux_001",
+            "title": "学习 5 个常用 Linux 命令并写笔记",
+            "description": "挑5个命令（ls/cat/grep/find/awk/sed/tail等），写用途+例子+你自己的理解。",
+            "energy": "low",
+            "duration": {
+                "min": 15,
+                "max": 30
+            },
+            "tags": [
+                "linux",
+                "notes"
+            ],
+            "output": {
+                "type": "note",
+                "suggestedPath": "./notes/linux/"
+            },
+            "rules": {
+                "repeatable": true,
+                "cooldownDays": 2
+            }
+        },
+        {
+            "id": "task_linux_002",
+            "title": "写一个 Bash 小脚本：快速创建项目模板",
+            "description": "写一个脚本，一键生成项目目录结构（src/assets/docs），并自动初始化 git。",
+            "energy": "medium",
+            "duration": {
+                "min": 40,
+                "max": 70
+            },
+            "tags": [
+                "linux",
+                "bash",
+                "tooling"
+            ],
+            "output": {
+                "type": "code",
+                "suggestedPath": "./scripts/"
+            },
+            "rules": {
+                "repeatable": true,
+                "cooldownDays": 14
+            }
+        },
+        {
+            "id": "task_linux_003",
+            "title": "学习并实践 grep + find 组合",
+            "description": "在你的项目里用 find + grep 搜索关键字，写下3种不同组合用法。",
+            "energy": "low",
+            "duration": {
+                "min": 15,
+                "max": 30
+            },
+            "tags": [
+                "linux",
+                "cli",
+                "notes"
+            ],
+            "output": {
+                "type": "note",
+                "suggestedPath": "./notes/linux/"
+            },
+            "rules": {
+                "repeatable": true,
+                "cooldownDays": 3
+            }
+        },
+        {
+            "id": "task_linux_004",
+            "title": "学习 systemd 基础（并写笔记）",
+            "description": "学习 systemctl 常用命令，理解 service/daemon/log，写一页笔记。",
+            "energy": "medium",
+            "duration": {
+                "min": 40,
+                "max": 80
+            },
+            "tags": [
+                "linux",
+                "systemd",
+                "notes"
+            ],
+            "output": {
+                "type": "note",
+                "suggestedPath": "./notes/linux/"
+            },
+            "rules": {
+                "repeatable": true,
+                "cooldownDays": 14
+            }
+        },
+        {
+            "id": "task_node_001",
+            "title": "写一个 Node.js JSON 文件读写 demo",
+            "description": "写一个 Node 脚本：读取 JSON -> 修改字段 -> 保存，熟悉 fs/promises。",
+            "energy": "medium",
+            "duration": {
+                "min": 30,
+                "max": 60
+            },
+            "tags": [
+                "node",
+                "backend",
+                "tooling"
+            ],
+            "output": {
+                "type": "code",
+                "suggestedPath": "./projects/node-tools/"
+            },
+            "rules": {
+                "repeatable": true,
+                "cooldownDays": 7
+            }
+        },
+        {
+            "id": "task_node_002",
+            "title": "写一个 Express API：返回任务池列表",
+            "description": "写一个 Express 服务：GET /tasks 返回 task-pool.json 内容，并支持按 energy 筛选。",
+            "energy": "high",
+            "duration": {
+                "min": 90,
+                "max": 150
+            },
+            "tags": [
+                "node",
+                "express",
+                "backend"
+            ],
+            "output": {
+                "type": "repo",
+                "suggestedPath": "./projects/task-api/"
+            },
+            "rules": {
+                "repeatable": false,
+                "cooldownDays": 30
+            }
+        },
+        {
+            "id": "task_misc_001",
+            "title": "整理一个你常用的开发模板（README）",
+            "description": "写一个 README：包含你的项目结构偏好、commit 规范、常用脚本、部署方式。",
+            "energy": "medium",
+            "duration": {
+                "min": 30,
+                "max": 60
+            },
+            "tags": [
+                "tooling",
+                "notes",
+                "dev"
+            ],
+            "output": {
+                "type": "note",
+                "suggestedPath": "./notes/dev/"
+            },
+            "rules": {
+                "repeatable": true,
+                "cooldownDays": 14
+            }
+        },
+        {
+            "id": "task_misc_002",
+            "title": "写一个技术复盘（最近一个踩坑）",
+            "description": "写一篇短复盘：问题是什么、怎么排查、最终原因、如何避免、学到了什么。",
+            "energy": "medium",
+            "duration": {
+                "min": 30,
+                "max": 60
+            },
+            "tags": [
+                "notes",
+                "dev",
+                "writing"
+            ],
+            "output": {
+                "type": "text",
+                "suggestedPath": "./notes/retrospective/"
+            },
+            "rules": {
+                "repeatable": true,
+                "cooldownDays": 7
+            }
+        },
+        {
+            "id": "task_misc_003",
+            "title": "给未来的自己写一段备忘录",
+            "description": "写一段给未来自己的备忘录：你现在的状态、你怕什么、你希望未来记住什么。",
+            "energy": "low",
+            "duration": {
+                "min": 10,
+                "max": 20
+            },
+            "tags": [
+                "writing",
+                "life"
+            ],
+            "output": {
+                "type": "text",
+                "suggestedPath": "./writing/life/"
+            },
+            "rules": {
+                "repeatable": true,
+                "cooldownDays": 10
+            }
+        },
+        {
+            "id": "task_english_001",
+            "title": "背 10 个英语单词并造句",
+            "description": "选10个词，写中文意思，并用每个词写一个简单英文句子。",
+            "energy": "low",
+            "duration": {
+                "min": 10,
+                "max": 20
+            },
+            "tags": [
+                "english",
+                "language"
+            ],
+            "output": {
+                "type": "note",
+                "suggestedPath": "./notes/english/"
+            },
+            "rules": {
+                "repeatable": true,
+                "cooldownDays": 1
+            }
+        },
+        {
+            "id": "task_english_002",
+            "title": "读一篇英文短文并总结",
+            "description": "找一篇英文短文（300~800词），写5句总结，记录3个新词。",
+            "energy": "medium",
+            "duration": {
+                "min": 30,
+                "max": 50
+            },
+            "tags": [
+                "english",
+                "reading"
+            ],
+            "output": {
+                "type": "note",
+                "suggestedPath": "./notes/english/"
+            },
+            "rules": {
+                "repeatable": true,
+                "cooldownDays": 2
+            }
+        },
+        {
+            "id": "task_english_003",
+            "title": "听一段英文视频并写摘要",
+            "description": "听一段英文视频或播客（5~10分钟），写一段摘要，并记录听不懂的句子。",
+            "energy": "medium",
+            "duration": {
+                "min": 30,
+                "max": 60
+            },
+            "tags": [
+                "english",
+                "listening"
+            ],
+            "output": {
+                "type": "note",
+                "suggestedPath": "./notes/english/"
+            },
+            "rules": {
+                "repeatable": true,
+                "cooldownDays": 3
+            }
+        }
+    ]
+}
