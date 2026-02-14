@@ -25,7 +25,7 @@ export const ENGLISH_TASKS: Task[] = [
     title: "English for Programming (Root)",
     description:
       "工程英語主線：單詞 → 文檔 → 句子理解 → 實戰閱讀 → 輸出（筆記/summary）。",
-    energy: "low",
+    energy: "easy",
     duration: { min: 5, max: 15 },
     tags: ["english", "programming", "root"],
   },
@@ -40,7 +40,7 @@ export const ENGLISH_TASKS: Task[] = [
     order: 1,
     title: "Stage 1 - Vocabulary Base (單詞基礎)",
     description: "每天少量背單詞 + 高頻複習。建立閱讀 API 文檔的最小詞彙量。",
-    energy: "low",
+    energy: "easy",
     duration: { min: 5, max: 15 },
     tags: ["english", "vocab", "stage"],
   },
@@ -78,7 +78,7 @@ export const ENGLISH_TASKS: Task[] = [
     title: "Stage 4 - Output (輸出能力)",
     description:
       "開始用英文寫筆記、寫 issue、寫 commit message，建立工程場景輸出能力。",
-    energy: "high",
+    energy: "hard",
     duration: { min: 30, max: 60 },
     tags: ["english", "writing", "output", "stage"],
     prerequisites: ["stage_english_stackoverflow"],
@@ -95,7 +95,7 @@ export const ENGLISH_TASKS: Task[] = [
     title: "背單詞：學習 1 章（qwerty）",
     description:
       "打開 https://qwerty.kaiyi.cool/ ，學習 1 章新單詞。要求：至少完成一輪測試。",
-    energy: "low",
+    energy: "easy",
     duration: { min: 8, max: 15 },
     tags: ["english", "vocab", "qwerty"],
   },
@@ -118,7 +118,7 @@ export const ENGLISH_TASKS: Task[] = [
     title: "複習單詞：複習 2 章（qwerty）",
     description:
       "選擇你最近背過的 2 章進行複習。要求：錯的單詞要點進去再看一遍。",
-    energy: "low",
+    energy: "easy",
     duration: { min: 8, max: 15 },
     tags: ["english", "review", "vocab", "qwerty"],
   },
@@ -141,7 +141,7 @@ export const ENGLISH_TASKS: Task[] = [
     title: "單詞小結：記錄今天最難的 10 個詞",
     description:
       "從 qwerty 裡挑 10 個你今天最不熟的詞，寫在筆記中（中英對照即可）。",
-    energy: "low",
+    energy: "easy",
     duration: { min: 5, max: 10 },
     tags: ["english", "vocab", "notes"],
   },
@@ -194,7 +194,7 @@ export const ENGLISH_TASKS: Task[] = [
     title: "讀文檔：翻譯 5 句關鍵句",
     description:
       "選一段文檔（5~8 句），挑其中 5 句翻譯成中文。目標是理解語意，不是逐字翻。",
-    energy: "high",
+    energy: "hard",
     duration: { min: 25, max: 45 },
     tags: ["english", "docs", "translation"],
   },
@@ -235,7 +235,7 @@ export const ENGLISH_TASKS: Task[] = [
     title: "閱讀 GitHub Issue：理解一個 bug 討論",
     description:
       "找一個 GitHub issue（React/Vite/Node/TS），讀 issue 內容 + 至少 3 個回覆。寫下：bug 描述、重現方式、解法。",
-    energy: "high",
+    energy: "hard",
     duration: { min: 30, max: 55 },
     tags: ["english", "github", "issue", "reading"],
     prerequisites: ["en_docs_004"],
@@ -277,7 +277,7 @@ export const ENGLISH_TASKS: Task[] = [
     title: "英文輸出：寫 1 段 README 說明（5~10 行）",
     description:
       "用英文寫一段 README（介紹你的 Roulette 或任意小工具）。要求：5~10 行，包含 features 列表。",
-    energy: "high",
+    energy: "hard",
     duration: { min: 25, max: 45 },
     tags: ["english", "writing", "readme"],
     prerequisites: ["en_docs_004"],
@@ -290,7 +290,7 @@ export const ENGLISH_TASKS: Task[] = [
     title: "英文輸出：寫 1 個 issue 描述（模板）",
     description:
       "寫一段 GitHub issue 描述模板：Expected behavior / Actual behavior / Steps to reproduce。",
-    energy: "high",
+    energy: "hard",
     duration: { min: 25, max: 50 },
     tags: ["english", "writing", "github", "issue"],
     prerequisites: ["en_so_002"],
@@ -320,7 +320,7 @@ export const ENGLISH_TASKS: Task[] = [
     title: "速任務：背單詞 10 分鐘（qwerty）",
     description:
       "設定計時器 10 分鐘，在 qwerty.kaiyi.cool 背單詞。時間到就停，不加碼。",
-    energy: "low",
+    energy: "easy",
     duration: { min: 8, max: 12 },
     tags: ["english", "vocab", "qwerty", "drill"],
   },
@@ -331,7 +331,7 @@ export const ENGLISH_TASKS: Task[] = [
     order: 51,
     title: "速任務：複習單詞 10 分鐘（qwerty）",
     description: "複習模式刷 10 分鐘。目標：讓舊詞變熟。",
-    energy: "low",
+    energy: "easy",
     duration: { min: 8, max: 12 },
     tags: ["english", "review", "vocab", "qwerty", "drill"],
   },

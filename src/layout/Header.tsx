@@ -7,6 +7,7 @@ export default function Header() {
         </a>
       </h1>
       <div className="header_site_tip">Lotus. Dust. Zen. Void</div>
+      <div className="line-dashed"></div>
     </header>
   );
 }

@@ -1,4 +1,4 @@
-export type Energy = "low" | "medium" | "high";
+export type Energy = "easy" | "medium" | "hard";
 
 export type TaskType = "root" | "stage" | "leaf";
 

@@ -29,7 +29,7 @@ const mergedTasks = [
 assertNoDuplicateIds(mergedTasks);
 
 export const TASK_POOL: TaskPool = {
-  version: 3,
-  updatedAt: "2026-02-14",
+  version: 1,
+  updatedAt: "2026-02-15",
   tasks: mergedTasks,
 };

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { TASK_POOL } from "./data/task-pool";
+import Header from "./layout/Header";
 
 /**
  * Roulette 憑天轉
@@ -8,7 +9,7 @@ import { TASK_POOL } from "./data/task-pool";
  * Data:
  * - /src/data/task-pool.ts  手动维护任务池（import TASK_POOL）
  *
- * Core mechanics（方案：三次命运 + 连续任务 root->next leaf）：
+ * Core mechanics（方案：三次任務 + 连续任务 root->next leaf）：
  * - 每次 Spin 只出一个任务
  * - 抽到的任务不会从任务池排除（可重复抽到）
  * - 玩家只能 Accept 或 Reroll
@@ -70,7 +71,7 @@ function formatDateTimeToBuddhist(dateTimeISO?: string) {
   return formatToBuddhist(dateTimeISO);
 }
 
-type Energy = "low" | "medium" | "high";
+type Energy = "easy" | "medium" | "hard";
 
 type TaskPool = {
   version: number;
@@ -163,13 +164,13 @@ function formatDuration(task?: Task) {
 }
 
 function energyLabel(e: Energy) {
-  if (e === "low") return "低能量";
-  if (e === "medium") return "中能量";
-  return "高能量";
+  if (e === "easy") return "Easy";
+  if (e === "medium") return "Medium";
+  return "Hard";
 }
 
 function energyBadgeClass(e: Energy) {
-  if (e === "low") return "text-lime-300";
+  if (e === "easy") return "text-lime-300";
   if (e === "medium") return "text-emerald-300";
   return "text-cyan-300";
 }
@@ -713,7 +714,7 @@ export default function App() {
       setRollsUsed(newRollsUsed);
 
       if (forcedAccept) {
-        showToast("第 3 次 Spin：命运已锁定（自动 Accept）");
+        showToast("第 3 次 Spin：任務已锁定（自动 Accept）");
       } else {
         showToast("已 Spin（可 Accept 或 Reroll）");
       }
@@ -889,8 +890,8 @@ export default function App() {
 
   const poolTasksSorted = useMemo(() => {
     return [...taskPool.tasks].sort((a, b) => {
-      const ea = a.energy === "low" ? 0 : a.energy === "medium" ? 1 : 2;
-      const eb = b.energy === "low" ? 0 : b.energy === "medium" ? 1 : 2;
+      const ea = a.energy === "easy" ? 0 : a.energy === "medium" ? 1 : 2;
+      const eb = b.energy === "easy" ? 0 : b.energy === "medium" ? 1 : 2;
       if (ea !== eb) return ea - eb;
 
       const pa = a.parentId ?? "";
@@ -912,16 +913,14 @@ export default function App() {
   }, [yearLog]);
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      <div className="mx-auto max-w-5xl px-4 py-10">
+    <div className="min-h-screen text-zinc-100">
+      <Header />
+      <div className="mx-auto max-w-5xl pb-10">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-3xl font-black tracking-tight text-[var(--accent)]">
               ROULETTE
             </h2>
-            <p className="mt-2 text-sm text-[var(--accent)]">
-              憑天轉 · 三次命运 · Accept 或 Reroll · Root→Next Leaf
-            </p>
           </div>
 
           <div className="flex items-center gap-2">
@@ -938,7 +937,8 @@ export default function App() {
 
         {!fsAvailable && (
           <div className="mb-6 rounded-md border border-amber-800/40 bg-amber-950/30 p-4 text-amber-200">
-            你的浏览器不支持 File System Access API。建议使用 Chrome / Edge。
+            Your browser does not support the File System Access API. It is
+            recommended to use Chrome or Edge.
           </div>
         )}
 
@@ -987,7 +987,7 @@ export default function App() {
                 <div>
                   <div className="text-sm text-[var(--accent)]">STEP 1</div>
                   <div className="text-md font-semibold">
-                    选择文件（YearLog + Completion）
+                    Choose file（YearLog + Completion）
                   </div>
                   <div className="mt-1 text-sm text-zinc-400">
                     年度文件保存 timeline 日志。完成表保存“永久完成任务”。
@@ -998,31 +998,31 @@ export default function App() {
                   <button
                     onClick={openYearFile}
                     className="rounded-xs px-2 py-1 text-xs font-semibold  border  border-zinc-800 bg-zinc-950 text-zinc-500 hover:text-[var(--accent)] hover:cursor-pointer">
-                    打开年度文件
+                    Open YearLog
                   </button>
 
                   <button
                     onClick={createNewYearFile}
                     className="rounded-xs px-2 py-1 text-xs font-semibold  border  border-zinc-800 bg-zinc-950 text-zinc-500 hover:text-[var(--accent)] hover:cursor-pointer">
-                    新建年度文件
+                    Create a new YearLog
                   </button>
 
                   <button
                     onClick={openCompletionFile}
                     className="rounded-xs px-2 py-1 text-xs font-semibold  border  border-zinc-800 bg-zinc-950 text-zinc-500 hover:text-[var(--accent)] hover:cursor-pointer">
-                    打开 completion.json
+                    Open completion.json
                   </button>
 
                   <button
                     onClick={createNewCompletionFile}
                     className="rounded-xs px-2 py-1 text-xs font-semibold  border  border-zinc-800 bg-zinc-950 text-zinc-500 hover:text-[var(--accent)] hover:cursor-pointer">
-                    新建 completion.json
+                    Create a new completion.json
                   </button>
 
                   <button
                     onClick={openTaskPoolFile}
                     className="rounded-xs px-2 py-1 text-xs font-semibold  border  border-zinc-800 bg-zinc-950 text-zinc-500 hover:text-[var(--accent)] hover:cursor-pointer">
-                    打开 task-pool.json
+                    Open task-pool.json
                   </button>
                 </div>
               </div>
@@ -1077,15 +1077,12 @@ export default function App() {
               {/* STEP 2 */}
               <div className="rounded-md border border-zinc-800  bg-zinc-900/40 p-5">
                 <div className="text-xs text-zinc-500">STEP 2</div>
-                <div className="text-lg font-semibold">
-                  选择任务难度（能量）
-                </div>
                 <div className="mt-1 text-sm text-zinc-400">
-                  每次 Spin 之前都可以改变能量等级。
+                  每次 Spin 之前都可以改变任务难度等级。
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {(["low", "medium", "high"] as Energy[]).map((e) => (
+                  {(["easy", "medium", "hard"] as Energy[]).map((e) => (
                     <button
                       key={e}
                       onClick={() => setEnergy(e)}
@@ -1114,9 +1111,6 @@ export default function App() {
               {/* STEP 3 */}
               <div className="rounded-md border border-zinc-800  bg-zinc-900/40 p-5">
                 <div className="text-xs text-zinc-500">STEP 3</div>
-                <div className="text-lg font-semibold">
-                  Spin（最多 3 次，命运不排除）
-                </div>
                 <div className="mt-1 text-sm text-zinc-400">
                   抽到 root/stage 会自动 resolve 到下一个可执行 leaf。
                 </div>
@@ -1168,7 +1162,7 @@ export default function App() {
                   <div className="text-xs text-zinc-500">今日任务</div>
                   <div className="text-lg font-semibold">Roulette Card</div>
                   <div className="mt-1 text-sm text-zinc-400">
-                    Spin 出来的就是“当次命运”。你只能 Accept 或 Reroll。
+                    Spin 出来的就是“当次任務”。你只能 Accept 或 Reroll。
                   </div>
                 </div>
 
@@ -1205,7 +1199,7 @@ export default function App() {
                         {fakeRollingTitle || "..."}
                       </div>
                       <div className="mt-3 text-sm text-zinc-400">
-                        命运正在翻牌…
+                        任務正在翻牌…
                       </div>
                     </div>
                   ) : lastRolledTask ? (
@@ -1267,7 +1261,7 @@ export default function App() {
 
                       {rollsUsed >= 3 && (
                         <div className="mt-4 rounded-sm border border-amber-800/50 bg-amber-950/20 px-3 py-2 text-sm text-amber-200">
-                          已到第 3 次 Spin：命运已锁定，今日任务不可更改。
+                          已到第 3 次 Spin：任務已锁定，今日任务不可更改。
                         </div>
                       )}
                     </div>
@@ -1477,9 +1471,6 @@ export default function App() {
         {activeTab === "timeline" && (
           <div className="mt-6 rounded-md border border-zinc-800 bg-zinc-900/40 p-5">
             <div className="text-lg font-semibold">Timeline View</div>
-            <div className="mt-1 text-sm text-zinc-400">
-              年度时间线（倒序）。
-            </div>
 
             {!yearLog ? (
               <div className="mt-4 rounded-sm border border-zinc-800 bg-zinc-950/40 p-4 text-sm text-zinc-400">

@@ -50,7 +50,7 @@ export const LINUX_TASKS: Task[] = [
     title: "Linux Stage 3: System Management",
     description:
       "系統管理：systemd、service、logs、process、resource、storage。",
-    energy: "high",
+    energy: "hard",
     duration: { min: 15, max: 30 },
     tags: ["linux", "stage", "systemd", "admin"],
     prerequisites: ["task_linux_stage2_pipeline_practice"],
@@ -63,7 +63,7 @@ export const LINUX_TASKS: Task[] = [
     title: "Linux Stage 4: Networking",
     description:
       "網路基礎：IP/DNS、curl、ssh、port、firewall、troubleshooting。",
-    energy: "high",
+    energy: "hard",
     duration: { min: 15, max: 30 },
     tags: ["linux", "stage", "networking", "ssh"],
     prerequisites: ["task_linux_stage3_systemd_basic"],
@@ -75,7 +75,7 @@ export const LINUX_TASKS: Task[] = [
     order: 5,
     title: "Linux Stage 5: Users, Permissions & Security",
     description: "用戶、群組、sudo、權限、ACL、安全習慣、基礎 hardening。",
-    energy: "high",
+    energy: "hard",
     duration: { min: 15, max: 35 },
     tags: ["linux", "stage", "security", "permissions"],
     prerequisites: ["task_linux_stage4_ssh_practice"],
@@ -88,7 +88,7 @@ export const LINUX_TASKS: Task[] = [
     title: "Linux Stage 6: Practical Projects",
     description:
       "把 Linux 學到的東西整合成可交付成果：server、automation、deploy。",
-    energy: "high",
+    energy: "hard",
     duration: { min: 20, max: 60 },
     tags: ["linux", "stage", "projects", "real-world"],
     prerequisites: ["task_linux_stage5_sudo_and_users"],
@@ -117,7 +117,7 @@ export const LINUX_TASKS: Task[] = [
     title: "Terminal 基礎：pwd / ls / cd",
     description:
       "練習 pwd、ls、cd。要求：你能快速在 /、~、/etc、/var、/tmp 間切換。",
-    energy: "low",
+    energy: "easy",
     duration: { min: 10, max: 20 },
     tags: ["linux", "terminal", "basics"],
     prerequisites: ["task_linux_stage1_setup_linux_env"],
@@ -143,7 +143,7 @@ export const LINUX_TASKS: Task[] = [
     title: "查看文件：cat / less / head / tail",
     description:
       "建立一個文本檔案，練習用 cat/less/head/tail 查看。用 tail -f 模擬 log 追蹤。",
-    energy: "low",
+    energy: "easy",
     duration: { min: 15, max: 30 },
     tags: ["linux", "files", "logs", "less"],
     prerequisites: ["task_linux_stage1_basic_commands_1"],
@@ -194,7 +194,7 @@ export const LINUX_TASKS: Task[] = [
     order: 7,
     title: "學會查文檔：man / --help",
     description: "用 man 查 ls、find、chmod 的用法。學會 / 搜索與 q 退出。",
-    energy: "low",
+    energy: "easy",
     duration: { min: 15, max: 25 },
     tags: ["linux", "man", "documentation"],
     prerequisites: ["task_linux_stage1_package_manager"],
@@ -223,7 +223,7 @@ export const LINUX_TASKS: Task[] = [
     order: 0,
     title: "重定向筆記：> >> < 2> &>",
     description: "寫筆記：stdout/stderr 是什麼？> 與 >> 差異？2> 怎麼用？",
-    energy: "low",
+    energy: "easy",
     duration: { min: 15, max: 30 },
     tags: ["linux", "shell", "redirection", "notes"],
     prerequisites: ["task_linux_stage1_mini_checkpoint"],
@@ -275,7 +275,7 @@ export const LINUX_TASKS: Task[] = [
     title: "awk：抽取欄位入門",
     description:
       "用 ls -l 或 ps aux 的輸出練習 awk '{print $1,$2}'，理解欄位概念。",
-    energy: "high",
+    energy: "hard",
     duration: { min: 20, max: 50 },
     tags: ["linux", "awk", "text-processing"],
     prerequisites: ["task_linux_stage2_sed_intro"],
@@ -300,7 +300,7 @@ export const LINUX_TASKS: Task[] = [
     title: "bash：變量 + if + loop 小練習",
     description:
       "寫 script：輸入一個數字，判斷大小；for loop 打印 1~10；while loop 倒數。",
-    energy: "high",
+    energy: "hard",
     duration: { min: 30, max: 70 },
     tags: ["linux", "bash", "script", "loops"],
     prerequisites: ["task_linux_stage2_bash_script_hello"],
@@ -313,7 +313,7 @@ export const LINUX_TASKS: Task[] = [
     title: "Stage 2 Checkpoint：做一個 log parser",
     description:
       "寫一個腳本：從 log.txt 中提取 ERROR 行，統計次數，輸出到 report.txt。",
-    energy: "high",
+    energy: "hard",
     duration: { min: 40, max: 120 },
     tags: ["linux", "bash", "checkpoint", "log"],
     prerequisites: ["task_linux_stage2_bash_vars_if_loop"],
@@ -342,7 +342,7 @@ export const LINUX_TASKS: Task[] = [
     title: "systemd：systemctl start/stop/status",
     description:
       "練習 systemctl status ssh/nginx（若未安裝可安裝）。理解 service 的概念。",
-    energy: "high",
+    energy: "hard",
     duration: { min: 30, max: 70 },
     tags: ["linux", "systemd", "systemctl", "services"],
     prerequisites: ["task_linux_stage3_process_basics"],
@@ -392,7 +392,7 @@ export const LINUX_TASKS: Task[] = [
     title: "定時任務：crontab 入門",
     description:
       "建立一個 cron job：每分鐘輸出日期到某個 log file。理解 cron 表達式。",
-    energy: "high",
+    energy: "hard",
     duration: { min: 30, max: 80 },
     tags: ["linux", "cron", "automation"],
     prerequisites: ["task_linux_stage3_tar_backup"],
@@ -405,7 +405,7 @@ export const LINUX_TASKS: Task[] = [
     title: "Stage 3 Checkpoint：寫一個系統健康檢查腳本",
     description:
       "寫一個 healthcheck.sh：輸出 CPU/memory/disk usage，並保存成 report。",
-    energy: "high",
+    energy: "hard",
     duration: { min: 45, max: 120 },
     tags: ["linux", "checkpoint", "script", "system"],
     prerequisites: ["task_linux_stage3_cron_intro"],
@@ -459,7 +459,7 @@ export const LINUX_TASKS: Task[] = [
     order: 3,
     title: "端口監控：ss / netstat",
     description: "練習 ss -tulpn 找出正在監聽的 port。理解 LISTEN 狀態。",
-    energy: "high",
+    energy: "hard",
     duration: { min: 25, max: 60 },
     tags: ["linux", "ss", "netstat", "ports"],
     prerequisites: ["task_linux_stage4_curl_wget"],
@@ -472,7 +472,7 @@ export const LINUX_TASKS: Task[] = [
     title: "SSH 實戰：ssh + scp",
     description:
       "用 ssh 登入另一台機器（可用本機 VM）；用 scp 傳輸文件。理解 key-based login。",
-    energy: "high",
+    energy: "hard",
     duration: { min: 40, max: 120 },
     tags: ["linux", "ssh", "scp", "remote"],
     prerequisites: ["task_linux_stage4_ports_netstat_ss"],
@@ -485,7 +485,7 @@ export const LINUX_TASKS: Task[] = [
     title: "防火牆：ufw 入門",
     description:
       "練習 ufw status、允許 ssh、拒絕某 port。理解防火牆的核心邏輯。",
-    energy: "high",
+    energy: "hard",
     duration: { min: 30, max: 90 },
     tags: ["linux", "firewall", "ufw", "security"],
     prerequisites: ["task_linux_stage4_ssh_practice"],
@@ -515,7 +515,7 @@ export const LINUX_TASKS: Task[] = [
     title: "用戶與群組：useradd / groupadd / id",
     description:
       "建立一個新用戶 testuser，建立一個 group，練習 id、groups、whoami。",
-    energy: "high",
+    energy: "hard",
     duration: { min: 30, max: 90 },
     tags: ["linux", "users", "groups", "security"],
     prerequisites: ["task_linux_stage4_checkpoint_network_report"],
@@ -528,7 +528,7 @@ export const LINUX_TASKS: Task[] = [
     title: "sudo 與權限分配：visudo",
     description:
       "理解 sudoers，學會用 visudo 給某用戶 sudo 權限（可限制命令）。",
-    energy: "high",
+    energy: "hard",
     duration: { min: 30, max: 90 },
     tags: ["linux", "sudo", "visudo", "security"],
     prerequisites: ["task_linux_stage5_users_groups_notes"],
@@ -541,7 +541,7 @@ export const LINUX_TASKS: Task[] = [
     title: "ACL 權限：setfacl / getfacl",
     description:
       "練習 ACL：給某個 user 對某個 file 額外讀寫權限。理解 ACL vs chmod。",
-    energy: "high",
+    energy: "hard",
     duration: { min: 30, max: 80 },
     tags: ["linux", "acl", "permissions"],
     prerequisites: ["task_linux_stage5_sudo_and_users"],
@@ -567,7 +567,7 @@ export const LINUX_TASKS: Task[] = [
     title: "Stage 5 Checkpoint：寫一份 Linux Server Hardening 計劃",
     description:
       "寫一份 hardening plan：ssh、防火牆、用戶策略、更新策略、日誌監控。",
-    energy: "high",
+    energy: "hard",
     duration: { min: 40, max: 120 },
     tags: ["linux", "checkpoint", "security", "hardening"],
     prerequisites: ["task_linux_stage5_security_habits"],
@@ -584,7 +584,7 @@ export const LINUX_TASKS: Task[] = [
     title: "Project：搭建一台可用 SSH 的 Linux Server",
     description:
       "搭建 VM 或 VPS，配置 ssh key login + firewall，確保可以遠程登入。",
-    energy: "high",
+    energy: "hard",
     duration: { min: 60, max: 180 },
     tags: ["linux", "project", "ssh", "server"],
     prerequisites: ["task_linux_stage5_checkpoint_hardening_plan"],
@@ -597,7 +597,7 @@ export const LINUX_TASKS: Task[] = [
     title: "Project：部署靜態網站（nginx）",
     description:
       "安裝 nginx，部署一個靜態頁面，並能在瀏覽器訪問（本地或雲端）。",
-    energy: "high",
+    energy: "hard",
     duration: { min: 60, max: 180 },
     tags: ["linux", "project", "nginx", "deploy"],
     prerequisites: ["task_linux_stage6_project_ssh_server"],
@@ -610,7 +610,7 @@ export const LINUX_TASKS: Task[] = [
     title: "Project：自動備份腳本 + cron",
     description:
       "寫 backup.sh：打包某資料夾並存到 backups/，用 cron 每天自動跑一次。",
-    energy: "high",
+    energy: "hard",
     duration: { min: 45, max: 150 },
     tags: ["linux", "project", "backup", "cron"],
     prerequisites: ["task_linux_stage6_project_deploy_static_site"],
@@ -623,7 +623,7 @@ export const LINUX_TASKS: Task[] = [
     title: "Project：log 監控（grep + report）",
     description:
       "寫腳本每天掃描 auth.log 或 nginx log，提取異常訪問，輸出 report。",
-    energy: "high",
+    energy: "hard",
     duration: { min: 45, max: 150 },
     tags: ["linux", "project", "logs", "monitoring"],
     prerequisites: ["task_linux_stage6_project_backup_script"],

@@ -54,7 +54,6 @@ button {
 
 /* 網站的css */
 header {
-  border-bottom: dashed 1px var(--accent);
   padding-bottom: 2em;
   margin-bottom: 2em;
 }
