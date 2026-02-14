@@ -1,5 +1,14 @@
 # Roulette 憑天轉
 
+<!--
+暫時不需要，接下來，爲我定製 webdev.pool.ts 的任務。
+Web開發是一個很複雜的大分類，似乎很難細分。你先不必直接輸出.ts文件，先告訴我你會如何分？
+
+我爲自己開發了一個Roulette的Web版隨機任務。主要解決我每日面對電腦的幾小時，不知道如何充實自己，或者做什麼有意義的事情。我已經將學習Linux、 哈佛CS50 、學習English 、 寫作，拆分爲最小負擔任務，放入任務池。 現在，我不確定我該如何對Web開發拆分最小任務，具體來說，我不知道要做什麼Web項目？
+
+我作爲一個前端，想要做出什麼東西，在我的個人網站中展示，比如這個隨機任務。  但我這個Web基本寫完了。 我應該再做什麼呢？如果是學習React + ts+vite ，也需要用一個項目計劃，才能夠去學習。 我還有一個靈感，將我的學習Linux、 哈佛CS50 、學習English 、 寫作等，成果展示做的更好。尤其是寫作，可以擴展爲文字類視覺遊戲、互動小說等。一個終端風格的Web網站，完全命令驅動，一個命令驅動的文字遊戲，一個Web版對寫作資料庫中角色、大綱、事件等，通過Web展示爲易讀易用的效果等。
+ -->
+
 ## 構想
 
 - 放入一些隨機任務，通過每日隨機，完成任務，任務帶有難度等級。
@@ -41,117 +50,3 @@
 
 任務池 Task Pool（靜態）task-pool.json
 包含： id title desc tags energyLevel duration outputType（輸出是文章？代碼？筆記？）
-
-```json
-{
-  "version": 1,
-  "updatedAt": "2026-02-13",
-  "tasks": [
-    {
-      "id": "task_write_001",
-      "title": "写一段人物外貌描写",
-      "description": "为你正在构思的角色写一段外貌描写，重点是细节和气质。",
-      "energy": "low",
-      "duration": {
-        "min": 10,
-        "max": 20
-      },
-      "tags": ["writing", "character"],
-      "output": {
-        "type": "text",
-        "suggestedPath": "./writing/snippets/"
-      },
-      "rules": {
-        "repeatable": true,
-        "cooldownDays": 3
-      }
-    }
-  ]
-}
-```
-
-日誌 Log（動態，年度文件）2026.json
-記錄每天：
-date
-energyLevel
-rolledTasks（抽到的候選）
-selectedTask（最終接受）
-status（done/skip/abandoned）
-result（成果鏈接/文件路徑/一句總結）
-timestamp
-
-UI 展示（timeline / weekly / today）
-Today View（抽任務、接受、完成）
-Week View（本週完成情況）
-Timeline View（年度時間線）
-
-抽 3 個 → 但提供「系統推薦」
-你不是自己選，而是：
-系統高亮推薦一個（比如根據你最近沒做過的類型）
-你可以接受推薦
-或手動換成另外兩個
-
-成果展示
-resultType: url | file | repo | note
-resultValue: "https://..." or "./writing/2026-02-13.md"
-summary: "写了角色卡：李无名"
-
-```json
-{
-  "year": 2026,
-  "days": {
-    "2026-02-13": {
-      "energy": "medium",
-      "rolled": ["task_012", "task_044", "task_081"],
-      "selected": "task_044",
-      "status": "done",
-      "result": {
-        "type": "file",
-        "value": "./writing/2026-02-13.md",
-        "summary": "写了800字短篇：雪夜空佛寺"
-      },
-      "createdAt": "2026-02-13T11:40:00",
-      "completedAt": "2026-02-13T15:50:00"
-    }
-  }
-}
-```
-
-### 任務細分類
-
-- work 打工仔：所有關於打工的文字。
-- fimaly 王族: 關於父母、兄弟、親戚。
-- fuck 黑暗道：一些不願回憶的往事。
-- nomad 流浪： 記錄離家後四處亂跑遇到的人和事。
-
-<!--
-Linux 終端版
-用 Node.js / Python / Go 寫一個命令行：
-roulette init
-roulette spin
-roulette accept
-roulette done
-roulette status
-roulette week
-roulette timeline
-
-沿用你的 JSON schema（TaskPool / YearLog）
-ASCII 翻牌動畫
-彩色輸出（能量 badge）
-5 秒冷卻倒計時（終端進度條）
-
-我的設想是，發佈爲Linux包，使用命令安裝，命令運行，應用沒有GUI，是一個與Terminal類似的終端風格窗口。功能與規則和Web版本一致。可以加上指定文件夾，文件夾中的內容如下：
-- 讀取任務池文件.json
-- 讀取歷年的所有.json文件
-- 任務完成的編輯，編輯後插入到當年.json的第一個元素中。
-- 支持git命令，一鍵push到github。
-- 其他，儘量還原Web版本的佈局。
-
-方案 1：Cargo / Rust（最像 Linux 工具）
-写 Rust TUI（ratatui）
-发布 binary
-提供 .deb / .rpm / AUR
-用户 sudo dpkg -i 或 pacman -S roulette
-这条路线最硬核，也最像你描述的“系统级应用”。
-
- -->

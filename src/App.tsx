@@ -1,24 +1,74 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { TASK_POOL } from "./data/task-pool";
 
 /**
  * Roulette 憑天轉
- * - React + TypeScript + Vite + Tailwind
- * - File System Access API
+ * React + TypeScript + Vite + Tailwind
  *
- * 当前机制（方案 1：三次命运）：
+ * Data:
+ * - /src/data/task-pool.ts  手动维护任务池（import TASK_POOL）
+ *
+ * Core mechanics（方案：三次命运 + 连续任务 root->next leaf）：
  * - 每次 Spin 只出一个任务
  * - 抽到的任务不会从任务池排除（可重复抽到）
  * - 玩家只能 Accept 或 Reroll
  * - 每日最多 3 次 Spin
  * - 若 3 次用完仍未 Accept，则最后一次 Spin 强制成为今日任务（自动 accepted）
  * - 不允许 Skip / Abandon
- * - 当日结束后手动标记 done/abandoned 等（你自己更新）
  *
- * UI：
+ * Added features:
+ * - Completion Registry（永久完成表）：
+ *   - 完成 leaf task -> 记录到 completion.completedTaskIds
+ *   - 完成 stage/root -> 自动完成其下所有 leaf（可选逻辑，这里实现 stage 完成自动标记）
+ * - Root/Stage resolve：
+ *   - Spin 抽到 root/stage 时，返回第一个可执行（未完成 + prerequisites 满足）的 leaf
+ *
+ * UI requirements:
  * - 5 秒冷却 + 倒计时显示
  * - 翻牌动画
  * - 今日 rolled 历史列表可视化
+ * - Tabs:
+ *   - Today（STEP1~STEP4）
+ *   - Timeline（年度时间线倒序）
+ *   - Task Pool（任务池一览）
+ *
+ * Date format:
+ * - 所有日期在 UI 展示时统一使用「佛曆 Buddhist Era」
+ * - 内部存储 key 仍然使用 ISO（YYYY-MM-DD），避免 JSON 存档结构混乱
  */
+
+// --- 佛曆格式化函數 ---
+export const formatToBuddhist = (dateStr: string) => {
+  try {
+    const date = new Date(dateStr);
+    const formatter = new Intl.DateTimeFormat("en-GB-u-ca-buddhist", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+    return `${formatter.format(date)}`;
+  } catch (e) {
+    return dateStr;
+  }
+};
+
+// YYYY-MM-DD -> Buddhist display
+function formatISODateToBuddhist(dateKey: string) {
+  try {
+    const [y, m, d] = dateKey.split("-").map(Number);
+    if (!y || !m || !d) return dateKey;
+    const date = new Date(y, m - 1, d);
+    return formatToBuddhist(date.toISOString());
+  } catch {
+    return dateKey;
+  }
+}
+
+// ISO datetime -> Buddhist display
+function formatDateTimeToBuddhist(dateTimeISO?: string) {
+  if (!dateTimeISO) return "-";
+  return formatToBuddhist(dateTimeISO);
+}
 
 type Energy = "low" | "medium" | "high";
 
@@ -28,6 +78,8 @@ type TaskPool = {
   tasks: Task[];
 };
 
+type TaskType = "leaf" | "root" | "stage";
+
 type Task = {
   id: string;
   title: string;
@@ -35,6 +87,13 @@ type Task = {
   energy: Energy;
   duration: { min: number; max: number };
   tags: string[];
+
+  type?: TaskType;
+  parentId?: string;
+  stageId?: string;
+  order?: number;
+  prerequisites?: string[];
+
   output?: {
     type: "text" | "code" | "note" | "file";
     suggestedPath?: string;
@@ -47,9 +106,9 @@ type Task = {
 
 type DayLog = {
   energy: Energy;
-  rolled: string[]; // history of rolled task ids
+  rolled: string[];
   selected?: string;
-  status: "rolled" | "accepted" | "done" | "skip" | "abandoned";
+  status: "rolled" | "accepted" | "done";
   result?: {
     type: "url" | "file" | "repo" | "note";
     value: string;
@@ -65,10 +124,16 @@ type YearLog = {
   days: Record<string, DayLog>;
 };
 
+type CompletionLog = {
+  completedTaskIds: Record<string, string>; // taskId -> completedAt ISO
+  completedStageIds: Record<string, string>; // stageId -> completedAt ISO
+};
+
 function pad2(n: number) {
   return String(n).padStart(2, "0");
 }
 
+// 注意：todayKey 必须保持 ISO key，否则 YearLog days 结构会乱
 function todayKey() {
   const d = new Date();
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
@@ -76,25 +141,6 @@ function todayKey() {
 
 function nowISO() {
   return new Date().toISOString();
-}
-
-function startOfWeekISO(date = new Date()) {
-  const d = new Date(date);
-  const day = d.getDay(); // 0 Sun
-  const diff = (day === 0 ? -6 : 1) - day;
-  d.setDate(d.getDate() + diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-function isoDate(d: Date) {
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-}
-
-function addDays(d: Date, n: number) {
-  const x = new Date(d);
-  x.setDate(x.getDate() + n);
-  return x;
 }
 
 function safeJsonParse<T>(text: string, fallback: T): T {
@@ -123,15 +169,13 @@ function energyLabel(e: Energy) {
 }
 
 function energyBadgeClass(e: Energy) {
-  if (e === "low") return "bg-zinc-100 text-zinc-700 border-zinc-200";
-  if (e === "medium") return "bg-amber-50 text-amber-800 border-amber-200";
-  return "bg-rose-50 text-rose-800 border-rose-200";
+  if (e === "low") return "text-lime-300";
+  if (e === "medium") return "text-emerald-300";
+  return "text-cyan-300";
 }
 
 function statusBadgeClass(s: DayLog["status"]) {
   if (s === "done") return "bg-emerald-50 text-emerald-800 border-emerald-200";
-  if (s === "skip") return "bg-zinc-100 text-zinc-700 border-zinc-200";
-  if (s === "abandoned") return "bg-rose-50 text-rose-800 border-rose-200";
   if (s === "accepted") return "bg-sky-50 text-sky-800 border-sky-200";
   return "bg-violet-50 text-violet-800 border-violet-200";
 }
@@ -146,88 +190,43 @@ function isFSAvailable() {
   );
 }
 
-const BUILTIN_TASK_POOL: TaskPool = {
-  version: 1,
-  updatedAt: "2026-02-13",
-  tasks: [
-    {
-      id: "task_write_001",
-      title: "写一段人物外貌描写",
-      description: "为你正在构思的角色写一段外貌描写，重点是细节和气质。",
-      energy: "low",
-      duration: { min: 10, max: 20 },
-      tags: ["writing", "character"],
-      output: { type: "text", suggestedPath: "./writing/snippets/" },
-      rules: { repeatable: true, cooldownDays: 3 },
-    },
-    {
-      id: "task_linux_001",
-      title: "整理一个 Linux alias 小工具",
-      description:
-        "写 5 个你最常用的 alias，放进 ~/.bashrc 或 ~/.zshrc，并写一段解释。",
-      energy: "low",
-      duration: { min: 15, max: 20 },
-      tags: ["linux", "productivity"],
-      output: { type: "note", suggestedPath: "./notes/linux/" },
-      rules: { repeatable: true, cooldownDays: 7 },
-    },
-    {
-      id: "task_frontend_001",
-      title: "做一个可复用的 Button 组件",
-      description: "在你的组件库里写一个 Button，支持 variant/size/disabled。",
-      energy: "medium",
-      duration: { min: 30, max: 60 },
-      tags: ["frontend", "react", "typescript"],
-      output: { type: "code", suggestedPath: "./src/components/" },
-      rules: { repeatable: true, cooldownDays: 10 },
-    },
-    {
-      id: "task_write_002",
-      title: "写一段对话（雪夜空佛寺）",
-      description: "写 300~600 字对话：公主与酒客万乞一在雪夜相遇。",
-      energy: "medium",
-      duration: { min: 40, max: 60 },
-      tags: ["writing", "dialogue"],
-      output: { type: "text", suggestedPath: "./writing/dialogue/" },
-      rules: { repeatable: true, cooldownDays: 5 },
-    },
-    {
-      id: "task_deep_001",
-      title: "写一篇黑暗道回忆（不必给任何人看）",
-      description: "写 800~1200 字：一段你不愿回忆的往事。写完封存。",
-      energy: "high",
-      duration: { min: 90, max: 120 },
-      tags: ["fuck", "memory", "writing"],
-      output: { type: "note", suggestedPath: "./private/" },
-      rules: { repeatable: true, cooldownDays: 14 },
-    },
-  ],
-};
-
 function pickRandom<T>(arr: T[]): T | null {
   if (arr.length === 0) return null;
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+function isTaskContainer(task: Task) {
+  return task.type === "root" || task.type === "stage";
+}
+
 export default function App() {
-  const [taskPool, setTaskPool] = useState<TaskPool>(BUILTIN_TASK_POOL);
+  const [taskPool, setTaskPool] = useState<TaskPool>(TASK_POOL as TaskPool);
+
   const [yearLog, setYearLog] = useState<YearLog | null>(null);
+  const [completionLog, setCompletionLog] = useState<CompletionLog>({
+    completedTaskIds: {},
+    completedStageIds: {},
+  });
 
   const [yearFileHandle, setYearFileHandle] =
     useState<FileSystemFileHandle | null>(null);
   const [poolFileHandle, setPoolFileHandle] =
     useState<FileSystemFileHandle | null>(null);
 
+  const [completionFileHandle, setCompletionFileHandle] =
+    useState<FileSystemFileHandle | null>(null);
+
   const [energy, setEnergy] = useState<Energy>("medium");
 
-  const [activeTab, setActiveTab] = useState<"today" | "week" | "timeline">(
+  const [activeTab, setActiveTab] = useState<"today" | "timeline" | "pool">(
     "today"
   );
+
   const [toast, setToast] = useState<string | null>(null);
 
   // Spin mechanics
   const [spinning, setSpinning] = useState<boolean>(false);
-  const [cooldown, setCooldown] = useState<number>(0); // seconds
+  const [cooldown, setCooldown] = useState<number>(0);
   const [rollsUsed, setRollsUsed] = useState<number>(0);
 
   // Spin result
@@ -250,6 +249,7 @@ export default function App() {
 
   const fsAvailable = isFSAvailable();
   const today = todayKey();
+  const todayBuddhist = formatISODateToBuddhist(today);
 
   function showToast(msg: string) {
     setToast(msg);
@@ -262,6 +262,84 @@ export default function App() {
     for (const t of taskPool.tasks) map.set(t.id, t);
     return map;
   }, [taskPool.tasks]);
+
+  const childrenMap = useMemo(() => {
+    const map = new Map<string, Task[]>();
+    for (const t of taskPool.tasks) {
+      if (!t.parentId) continue;
+      const list = map.get(t.parentId) ?? [];
+      list.push(t);
+      map.set(t.parentId, list);
+    }
+    for (const [k, list] of map.entries()) {
+      list.sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
+      map.set(k, list);
+    }
+    return map;
+  }, [taskPool.tasks]);
+
+  function getChildren(parentId: string) {
+    return childrenMap.get(parentId) ?? [];
+  }
+
+  function hasChildren(parentId: string) {
+    return getChildren(parentId).length > 0;
+  }
+
+  function isCompleted(taskId: string) {
+    return !!completionLog.completedTaskIds[taskId];
+  }
+
+  function prerequisitesMet(taskId: string) {
+    const t = taskById.get(taskId);
+    if (!t) return true;
+    const req = t.prerequisites ?? [];
+    if (req.length === 0) return true;
+    return req.every((id) => isCompleted(id));
+  }
+
+  function getAllLeafChildren(containerId: string): Task[] {
+    const out: Task[] = [];
+
+    function dfs(id: string) {
+      const children = getChildren(id);
+      if (children.length === 0) return;
+
+      for (const c of children) {
+        if (hasChildren(c.id) || isTaskContainer(c)) {
+          dfs(c.id);
+        } else {
+          out.push(c);
+        }
+      }
+    }
+
+    dfs(containerId);
+    return out;
+  }
+
+  function resolveTaskToNextLeaf(taskId: string): string | null {
+    const t = taskById.get(taskId);
+    if (!t) return null;
+
+    const children = getChildren(taskId);
+    const isContainer = isTaskContainer(t) || children.length > 0;
+
+    // leaf
+    if (!isContainer) {
+      if (isCompleted(t.id)) return null;
+      if (!prerequisitesMet(t.id)) return null;
+      return t.id;
+    }
+
+    // container: find next executable leaf
+    for (const child of children) {
+      const resolved = resolveTaskToNextLeaf(child.id);
+      if (resolved) return resolved;
+    }
+
+    return null;
+  }
 
   const todayLog: DayLog | null = useMemo(() => {
     if (!yearLog) return null;
@@ -334,6 +412,7 @@ export default function App() {
       year: new Date().getFullYear(),
       days: {},
     };
+
     const existing = base.days[today];
 
     if (!existing) {
@@ -351,9 +430,7 @@ export default function App() {
 
   async function openYearFile() {
     if (!fsAvailable) {
-      showToast(
-        "当前浏览器不支持 File System Access API（建议 Chrome / Edge）"
-      );
+      showToast("浏览器不支持 File System Access API（建议 Chrome / Edge）");
       return;
     }
 
@@ -389,9 +466,7 @@ export default function App() {
 
   async function createNewYearFile() {
     if (!fsAvailable) {
-      showToast(
-        "当前浏览器不支持 File System Access API（建议 Chrome / Edge）"
-      );
+      showToast("浏览器不支持 File System Access API（建议 Chrome / Edge）");
       return;
     }
 
@@ -424,11 +499,81 @@ export default function App() {
     }
   }
 
+  async function openCompletionFile() {
+    if (!fsAvailable) {
+      showToast("浏览器不支持 File System Access API（建议 Chrome / Edge）");
+      return;
+    }
+
+    try {
+      // @ts-ignore
+      const [handle] = await window.showOpenFilePicker({
+        types: [
+          {
+            description: "Completion Log JSON",
+            accept: { "application/json": [".json"] },
+          },
+        ],
+        multiple: false,
+      });
+
+      const file = await handle.getFile();
+      const text = await file.text();
+
+      const parsed = safeJsonParse<CompletionLog>(text, {
+        completedTaskIds: {},
+        completedStageIds: {},
+      });
+
+      if (!parsed.completedTaskIds) parsed.completedTaskIds = {};
+      if (!parsed.completedStageIds) parsed.completedStageIds = {};
+
+      setCompletionFileHandle(handle);
+      setCompletionLog(parsed);
+      showToast(`已加载完成表：${file.name}`);
+    } catch {
+      // ignore
+    }
+  }
+
+  async function createNewCompletionFile() {
+    if (!fsAvailable) {
+      showToast("浏览器不支持 File System Access API（建议 Chrome / Edge）");
+      return;
+    }
+
+    try {
+      // @ts-ignore
+      const handle = await window.showSaveFilePicker({
+        suggestedName: `completion.json`,
+        types: [
+          {
+            description: "Completion Log JSON",
+            accept: { "application/json": [".json"] },
+          },
+        ],
+      });
+
+      const empty: CompletionLog = {
+        completedTaskIds: {},
+        completedStageIds: {},
+      };
+
+      const writable = await handle.createWritable();
+      await writable.write(JSON.stringify(empty, null, 2));
+      await writable.close();
+
+      setCompletionFileHandle(handle);
+      setCompletionLog(empty);
+      showToast("已创建完成表文件");
+    } catch {
+      // ignore
+    }
+  }
+
   async function openTaskPoolFile() {
     if (!fsAvailable) {
-      showToast(
-        "当前浏览器不支持 File System Access API（建议 Chrome / Edge）"
-      );
+      showToast("浏览器不支持 File System Access API（建议 Chrome / Edge）");
       return;
     }
 
@@ -446,7 +591,7 @@ export default function App() {
 
       const file = await handle.getFile();
       const text = await file.text();
-      const parsed = safeJsonParse<TaskPool>(text, BUILTIN_TASK_POOL);
+      const parsed = safeJsonParse<TaskPool>(text, taskPool);
 
       if (!parsed.tasks) parsed.tasks = [];
 
@@ -487,6 +632,11 @@ export default function App() {
       return;
     }
 
+    if (!completionLog) {
+      showToast("先打开完成表 completion.json（STEP 1）");
+      return;
+    }
+
     if (spinning || cooldown > 0) return;
 
     if (todayLog?.status === "accepted" || todayLog?.status === "done") {
@@ -499,39 +649,62 @@ export default function App() {
       return;
     }
 
-    const available = taskPool.tasks.filter((t) => t.energy === energy);
+    // candidates: energy match + not completed + prerequisites met
+    const candidates = taskPool.tasks.filter((t) => {
+      if (t.energy !== energy) return false;
 
-    if (available.length === 0) {
-      showToast("任务池里没有这个能量等级的任务");
+      // root/stage can be candidates if they have any resolvable leaf
+      if (isTaskContainer(t) || hasChildren(t.id)) {
+        const resolved = resolveTaskToNextLeaf(t.id);
+        return !!resolved;
+      }
+
+      // leaf
+      if (isCompleted(t.id)) return false;
+      if (!prerequisitesMet(t.id)) return false;
+      return true;
+    });
+
+    if (candidates.length === 0) {
+      showToast("没有可执行的任务（可能都完成了 / prerequisites 未满足）");
       return;
     }
 
-    const chosen = pickRandom(available);
+    const chosen = pickRandom(candidates);
     if (!chosen) {
       showToast("抽取失败");
       return;
     }
 
-    const possibleTitles = available.map((t) => t.title);
+    const possibleTitles = candidates.map((t) => t.title);
 
     beginRollingAnimation(possibleTitles, () => {
       setFakeRollingTitle("");
-      setLastRolledTaskId(chosen.id);
-      setSelectedTaskId(chosen.id);
+
+      const resolvedLeafId =
+        resolveTaskToNextLeaf(chosen.id) ?? chosen.id ?? null;
+
+      if (!resolvedLeafId) {
+        showToast("任务解析失败（可能 prerequisites 未满足）");
+        setSpinning(false);
+        return;
+      }
+
+      setLastRolledTaskId(resolvedLeafId);
+      setSelectedTaskId(resolvedLeafId);
       setFlipKey((x) => x + 1);
 
       const next = ensureTodayLogBase();
       const prevRolled = next.days[today].rolled ?? [];
       const newRollsUsed = (next.days[today].rollsUsed ?? 0) + 1;
 
-      // 如果这是第 3 次，则自动强制 Accept
       const forcedAccept = newRollsUsed >= 3;
 
       next.days[today] = {
         ...next.days[today],
         energy,
-        rolled: [...prevRolled, chosen.id],
-        selected: chosen.id,
+        rolled: [...prevRolled, resolvedLeafId],
+        selected: resolvedLeafId,
         status: forcedAccept ? "accepted" : "rolled",
         rollsUsed: newRollsUsed,
       };
@@ -569,6 +742,27 @@ export default function App() {
     showToast("已 Accept（今日任务锁定）");
   }
 
+  function autoCompleteStagesIfReady(nextCompletion: CompletionLog) {
+    // find all stage/root tasks
+    const containers = taskPool.tasks.filter(
+      (t) => isTaskContainer(t) || hasChildren(t.id)
+    );
+
+    for (const c of containers) {
+      if (nextCompletion.completedStageIds[c.id]) continue;
+
+      const leaves = getAllLeafChildren(c.id);
+      if (leaves.length === 0) continue;
+
+      const allDone = leaves.every(
+        (leaf) => !!nextCompletion.completedTaskIds[leaf.id]
+      );
+      if (allDone) {
+        nextCompletion.completedStageIds[c.id] = nowISO();
+      }
+    }
+  }
+
   function markDone() {
     if (!yearLog) {
       showToast("先打开年度文件（STEP 1）");
@@ -597,7 +791,20 @@ export default function App() {
     };
 
     setYearLog(next);
-    showToast("已标记 Done（还没写回文件）");
+
+    // completion registry update
+    const nextCompletion: CompletionLog = {
+      completedTaskIds: { ...completionLog.completedTaskIds },
+      completedStageIds: { ...completionLog.completedStageIds },
+    };
+
+    nextCompletion.completedTaskIds[selectedTaskId] = nowISO();
+
+    autoCompleteStagesIfReady(nextCompletion);
+
+    setCompletionLog(nextCompletion);
+
+    showToast("已标记 Done（YearLog + CompletionLog 都已更新，但未写回文件）");
   }
 
   async function saveToYearFile() {
@@ -621,18 +828,26 @@ export default function App() {
     }
   }
 
-  const weekDays = useMemo(() => {
-    const start = startOfWeekISO(new Date());
-    return Array.from({ length: 7 }).map((_, i) => {
-      const d = addDays(start, i);
-      return isoDate(d);
-    });
-  }, []);
+  async function saveToCompletionFile() {
+    if (!completionLog) {
+      showToast("没有可保存的完成表数据");
+      return;
+    }
 
-  const weekLogs = useMemo(() => {
-    if (!yearLog) return [] as Array<{ date: string; log: DayLog | null }>;
-    return weekDays.map((date) => ({ date, log: yearLog.days[date] ?? null }));
-  }, [weekDays, yearLog]);
+    if (!completionFileHandle) {
+      showToast("未绑定完成表文件句柄（请先 STEP 1 打开/创建）");
+      return;
+    }
+
+    try {
+      const writable = await completionFileHandle.createWritable();
+      await writable.write(JSON.stringify(completionLog, null, 2));
+      await writable.close();
+      showToast("已写回 completion.json");
+    } catch {
+      showToast("写入失败（可能权限被拒绝）");
+    }
+  }
 
   const timeline = useMemo(() => {
     if (!yearLog) return [] as Array<{ date: string; log: DayLog }>;
@@ -664,22 +879,56 @@ export default function App() {
     todayLog?.status !== "done" &&
     rollsUsed < 3;
 
+  const poolStats = useMemo(() => {
+    const total = taskPool.tasks.length;
+    const completed = taskPool.tasks.filter((t) => isCompleted(t.id)).length;
+    const stageCompleted = Object.keys(completionLog.completedStageIds).length;
+
+    return { total, completed, stageCompleted };
+  }, [taskPool.tasks, completionLog]);
+
+  const poolTasksSorted = useMemo(() => {
+    return [...taskPool.tasks].sort((a, b) => {
+      const ea = a.energy === "low" ? 0 : a.energy === "medium" ? 1 : 2;
+      const eb = b.energy === "low" ? 0 : b.energy === "medium" ? 1 : 2;
+      if (ea !== eb) return ea - eb;
+
+      const pa = a.parentId ?? "";
+      const pb = b.parentId ?? "";
+      if (pa !== pb) return pa.localeCompare(pb);
+
+      return (a.order ?? 9999) - (b.order ?? 9999);
+    });
+  }, [taskPool.tasks]);
+
+  // 显示用的佛曆 year（例如 2569）
+  const buddhistYearLabel = useMemo(() => {
+    try {
+      const d = new Date(`${yearLog?.year ?? new Date().getFullYear()}-01-01`);
+      return formatToBuddhist(d.toISOString());
+    } catch {
+      return yearLog ? String(yearLog.year) : "—";
+    }
+  }, [yearLog]);
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <div className="mx-auto max-w-5xl px-4 py-10">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-3xl font-black tracking-tight">ROULETTE</h2>
-            <p className="mt-2 text-sm text-zinc-400">
-              憑天轉 · 三次命运 · Accept 或 Reroll
+            <h2 className="text-3xl font-black tracking-tight text-[var(--accent)]">
+              ROULETTE
+            </h2>
+            <p className="mt-2 text-sm text-[var(--accent)]">
+              憑天轉 · 三次命运 · Accept 或 Reroll · Root→Next Leaf
             </p>
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1 text-xs text-zinc-300">
-              {yearLog ? `Year ${yearLog.year}` : "No Year File"}
+            <div className="rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1 text-xs text-[var(--accent)]">
+              {yearLog ? `${buddhistYearLabel}` : "No Year File"}
             </div>
-            <div className="rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1 text-xs text-zinc-300">
+            <div className="rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1 text-xs text-[var(--accent)]">
               {stats.done}/{stats.total} done
             </div>
           </div>
@@ -688,504 +937,576 @@ export default function App() {
         <hr className="my-6 border-dashed border-zinc-800" />
 
         {!fsAvailable && (
-          <div className="mb-6 rounded-2xl border border-amber-800/40 bg-amber-950/30 p-4 text-amber-200">
+          <div className="mb-6 rounded-md border border-amber-800/40 bg-amber-950/30 p-4 text-amber-200">
             你的浏览器不支持 File System Access API。建议使用 Chrome / Edge。
           </div>
         )}
 
-        {/* STEP 1 */}
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 shadow-sm">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
-              <div className="text-xs text-zinc-500">STEP 1</div>
-              <div className="text-lg font-semibold">
-                选择年度文件（2026.json）
-              </div>
-              <div className="mt-1 text-sm text-zinc-400">
-                年度文件保存 timeline 日志。任务池可以内置或另行打开。
-              </div>
-            </div>
+        {/* Tabs */}
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setActiveTab("today")}
+            className={
+              "rounded-md border px-4 py-2 text-sm font-semibold " +
+              (activeTab === "today"
+                ? "border-[var(--accent)] text-[var(--accent)]"
+                : "border-zinc-800 bg-zinc-950 text-zinc-200 hover:bg-zinc-900")
+            }>
+            Today
+          </button>
 
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={openYearFile}
-                className="rounded-xl bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-white">
-                打开年度文件
-              </button>
+          <button
+            onClick={() => setActiveTab("timeline")}
+            className={
+              "rounded-md border px-4 py-2 text-sm font-semibold " +
+              (activeTab === "timeline"
+                ? "border-[var(--accent)] text-[var(--accent)]"
+                : "border-zinc-800 bg-zinc-950 text-zinc-200 hover:bg-zinc-900")
+            }>
+            Timeline
+          </button>
 
-              <button
-                onClick={createNewYearFile}
-                className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-800">
-                新建年度文件
-              </button>
-
-              <button
-                onClick={openTaskPoolFile}
-                className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-800">
-                打开任务池 task-pool.json
-              </button>
-            </div>
-          </div>
-
-          {yearFileHandle && (
-            <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-950/50 px-3 py-2 text-xs text-zinc-400">
-              已绑定年度文件句柄（浏览器权限 OK）
-            </div>
-          )}
-
-          <div className="mt-2 rounded-xl border border-zinc-800 bg-zinc-950/50 px-3 py-2 text-xs text-zinc-400">
-            当前任务池：
-            <span className="text-zinc-200">{taskPool.tasks.length}</span> tasks
-            · version <span className="text-zinc-200">{taskPool.version}</span>{" "}
-            · updatedAt{" "}
-            <span className="text-zinc-200">{taskPool.updatedAt}</span>
-          </div>
-
-          {poolFileHandle && (
-            <div className="mt-2 rounded-xl border border-zinc-800 bg-zinc-950/50 px-3 py-2 text-xs text-zinc-400">
-              已绑定任务池文件句柄（任务池可动态更新）
-            </div>
-          )}
+          <button
+            onClick={() => setActiveTab("pool")}
+            className={
+              "rounded-md border px-4 py-2 text-sm font-semibold " +
+              (activeTab === "pool"
+                ? "border-[var(--accent)] text-[var(--accent)]"
+                : "border-zinc-800 bg-zinc-950 text-zinc-200 hover:bg-zinc-900")
+            }>
+            Task Pool
+          </button>
         </div>
 
-        <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
-          {/* STEP 2 */}
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
-            <div className="text-xs text-zinc-500">STEP 2</div>
-            <div className="text-lg font-semibold">选择任务难度（能量）</div>
-            <div className="mt-1 text-sm text-zinc-400">
-              每次 Spin 之前都可以改变能量等级。
-            </div>
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              {(["low", "medium", "high"] as Energy[]).map((e) => (
-                <button
-                  key={e}
-                  onClick={() => setEnergy(e)}
-                  className={
-                    "rounded-xl border px-4 py-2 text-sm font-semibold transition " +
-                    (energy === e
-                      ? "border-white bg-white text-zinc-900"
-                      : "border-zinc-700 bg-zinc-950 text-zinc-200 hover:bg-zinc-800")
-                  }>
-                  {energyLabel(e)}
-                </button>
-              ))}
-            </div>
-
-            <div className="mt-4 flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-950/50 px-3 py-2 text-xs text-zinc-400">
-              <div>
-                今日：
-                <span className="font-semibold text-zinc-200">{today}</span>
-              </div>
-              <div
-                className={
-                  "rounded-full border px-2 py-0.5 " + energyBadgeClass(energy)
-                }>
-                {energy}
-              </div>
-            </div>
-          </div>
-
-          {/* STEP 3 */}
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
-            <div className="text-xs text-zinc-500">STEP 3</div>
-            <div className="text-lg font-semibold">
-              Spin（最多 3 次，命运不排除）
-            </div>
-            <div className="mt-1 text-sm text-zinc-400">
-              抽到的任务不会从任务池移除（可能重复）。Accept 后今日锁定。
-            </div>
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button
-                onClick={rollSpin}
-                disabled={spinDisabled}
-                className={
-                  "rounded-xl px-4 py-2 text-sm font-semibold transition " +
-                  (spinDisabled
-                    ? "bg-zinc-700 text-zinc-300 cursor-not-allowed"
-                    : "bg-violet-200 text-zinc-900 hover:bg-violet-100")
-                }>
-                {cooldown > 0
-                  ? `冷却中 ${cooldown}s`
-                  : spinning
-                  ? "Rolling..."
-                  : "Spin"}
-              </button>
-
-              <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-4 py-2 text-sm text-zinc-300">
-                Reroll = 再 Spin 一次
-              </div>
-            </div>
-
-            <div className="mt-4 flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-950/50 px-3 py-2 text-xs text-zinc-400">
-              <div>
-                Spin 已用：
-                <span className="font-semibold text-zinc-200">
-                  {rollsUsed}/3
-                </span>
-              </div>
-              <div>
-                {todayLog?.status === "accepted"
-                  ? "今日已锁定"
-                  : rollsUsed >= 3
-                  ? "已强制锁定最后结果"
-                  : "可 Accept 或 Reroll"}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Flip card */}
-        <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
-          <div className="flex items-end justify-between gap-4">
-            <div>
-              <div className="text-xs text-zinc-500">今日任务</div>
-              <div className="text-lg font-semibold">Roulette Card</div>
-              <div className="mt-1 text-sm text-zinc-400">
-                Spin 出来的就是“当次命运”。你只能 Accept 或 Reroll。
-              </div>
-            </div>
-
-            {todayLog && (
-              <div
-                className={
-                  "rounded-full border px-3 py-1 text-xs " +
-                  statusBadgeClass(todayLog.status)
-                }>
-                status: {todayLog.status}
-              </div>
-            )}
-          </div>
-
-          <div className="mt-5">
-            <div
-              key={flipKey}
-              className={
-                "relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950/50 p-5 shadow-sm " +
-                "transition-transform duration-500"
-              }
-              style={{
-                transform: spinning
-                  ? "rotateY(180deg) scale(0.98)"
-                  : "rotateY(0deg) scale(1)",
-                transformStyle: "preserve-3d",
-              }}>
-              {spinning ? (
-                <div className="text-center">
-                  <div className="text-xs uppercase tracking-widest text-zinc-500">
-                    rolling
+        {/* TODAY TAB */}
+        {activeTab === "today" && (
+          <div className="mt-6">
+            {/* STEP 1 */}
+            <div className="rounded-sm border border-zinc-800  bg-zinc-900/40 p-5 shadow-sm">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <div className="text-sm text-[var(--accent)]">STEP 1</div>
+                  <div className="text-md font-semibold">
+                    选择文件（YearLog + Completion）
                   </div>
-                  <div className="mt-3 text-xl font-black text-violet-200">
-                    {fakeRollingTitle || "..."}
-                  </div>
-                  <div className="mt-3 text-sm text-zinc-400">
-                    命运正在翻牌…
+                  <div className="mt-1 text-sm text-zinc-400">
+                    年度文件保存 timeline 日志。完成表保存“永久完成任务”。
                   </div>
                 </div>
-              ) : lastRolledTask ? (
-                <div>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="text-xl font-black">
-                      {lastRolledTask.title}
-                    </div>
 
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={
-                          "rounded-full border px-2 py-0.5 text-xs " +
-                          energyBadgeClass(lastRolledTask.energy)
-                        }>
-                        {lastRolledTask.energy}
-                      </span>
-                      <span className="rounded-full border border-zinc-800 bg-zinc-950 px-2 py-0.5 text-xs text-zinc-300">
-                        {formatDuration(lastRolledTask)}
-                      </span>
-                    </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={openYearFile}
+                    className="rounded-xs px-2 py-1 text-xs font-semibold  border  border-zinc-800 bg-zinc-950 text-zinc-500 hover:text-[var(--accent)] hover:cursor-pointer">
+                    打开年度文件
+                  </button>
+
+                  <button
+                    onClick={createNewYearFile}
+                    className="rounded-xs px-2 py-1 text-xs font-semibold  border  border-zinc-800 bg-zinc-950 text-zinc-500 hover:text-[var(--accent)] hover:cursor-pointer">
+                    新建年度文件
+                  </button>
+
+                  <button
+                    onClick={openCompletionFile}
+                    className="rounded-xs px-2 py-1 text-xs font-semibold  border  border-zinc-800 bg-zinc-950 text-zinc-500 hover:text-[var(--accent)] hover:cursor-pointer">
+                    打开 completion.json
+                  </button>
+
+                  <button
+                    onClick={createNewCompletionFile}
+                    className="rounded-xs px-2 py-1 text-xs font-semibold  border  border-zinc-800 bg-zinc-950 text-zinc-500 hover:text-[var(--accent)] hover:cursor-pointer">
+                    新建 completion.json
+                  </button>
+
+                  <button
+                    onClick={openTaskPoolFile}
+                    className="rounded-xs px-2 py-1 text-xs font-semibold  border  border-zinc-800 bg-zinc-950 text-zinc-500 hover:text-[var(--accent)] hover:cursor-pointer">
+                    打开 task-pool.json
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-2 rounded-xs border border-zinc-800 bg-zinc-950/50 px-3 py-2 text-xs text-zinc-400 ">
+                {yearFileHandle && (
+                  <div className="mt-4 text-xs text-zinc-400">
+                    已绑定年度文件句柄（浏览器权限 OK）
                   </div>
+                )}
 
-                  <div className="mt-3 text-sm text-zinc-300">
-                    {lastRolledTask.description}
+                {completionFileHandle && (
+                  <div className="mt-4 text-xs text-zinc-400">
+                    已绑定完成表文件句柄（completion.json）
                   </div>
+                )}
 
-                  <div className="mt-4 flex flex-wrap gap-1">
-                    {uniq(lastRolledTask.tags)
-                      .slice(0, 12)
-                      .map((tag) => (
-                        <span
-                          key={tag}
-                          className="rounded-full border border-zinc-800 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-400">
-                          {tag}
-                        </span>
-                      ))}
+                <div className="mt-4 text-xs text-zinc-400">
+                  当前任务池：
+                  <span className="text-zinc-200">
+                    {taskPool.tasks.length}
+                  </span>{" "}
+                  tasks · version{" "}
+                  <span className="text-zinc-200">{taskPool.version}</span> ·
+                  updatedAt{" "}
+                  <span className="text-zinc-200">
+                    {formatDateTimeToBuddhist(taskPool.updatedAt)}
+                  </span>
+                </div>
+
+                {poolFileHandle && (
+                  <div className="mt-4 text-xs text-zinc-400">
+                    已绑定任务池文件句柄（任务池可动态更新）
                   </div>
+                )}
 
-                  <div className="mt-5 flex flex-wrap gap-2">
+                <div className="mt-4 text-xs text-zinc-400">
+                  Completion：已完成{" "}
+                  <span className="text-zinc-200">
+                    {Object.keys(completionLog.completedTaskIds).length}
+                  </span>{" "}
+                  tasks · 已完成{" "}
+                  <span className="text-zinc-200">
+                    {Object.keys(completionLog.completedStageIds).length}
+                  </span>{" "}
+                  stages
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+              {/* STEP 2 */}
+              <div className="rounded-md border border-zinc-800  bg-zinc-900/40 p-5">
+                <div className="text-xs text-zinc-500">STEP 2</div>
+                <div className="text-lg font-semibold">
+                  选择任务难度（能量）
+                </div>
+                <div className="mt-1 text-sm text-zinc-400">
+                  每次 Spin 之前都可以改变能量等级。
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {(["low", "medium", "high"] as Energy[]).map((e) => (
                     <button
-                      onClick={() => acceptTask(lastRolledTask.id)}
-                      disabled={!canAccept}
+                      key={e}
+                      onClick={() => setEnergy(e)}
                       className={
-                        "rounded-xl px-4 py-2 text-sm font-semibold transition " +
-                        (!canAccept
-                          ? "cursor-not-allowed bg-zinc-700 text-zinc-300"
-                          : "bg-white text-zinc-900 hover:bg-zinc-100")
+                        "rounded-xs border px-2 py-1 text-xs font-semibold transition " +
+                        (energy === e
+                          ? "text-[var(--accent)]"
+                          : "border-zinc-700 bg-zinc-950 text-zinc-200 hover:bg-zinc-800")
                       }>
-                      Accept
+                      {energyLabel(e)}
                     </button>
+                  ))}
+                </div>
 
+                <div className="mt-4 flex items-center justify-between rounded-sm border border-zinc-800 bg-zinc-950/50 px-3 py-2 text-xs text-zinc-400">
+                  <div>
+                    今日：
+                    <span className="font-semibold text-zinc-200">
+                      {todayBuddhist}
+                    </span>
+                  </div>
+                  <div className={energyBadgeClass(energy)}>{energy}</div>
+                </div>
+              </div>
+
+              {/* STEP 3 */}
+              <div className="rounded-md border border-zinc-800  bg-zinc-900/40 p-5">
+                <div className="text-xs text-zinc-500">STEP 3</div>
+                <div className="text-lg font-semibold">
+                  Spin（最多 3 次，命运不排除）
+                </div>
+                <div className="mt-1 text-sm text-zinc-400">
+                  抽到 root/stage 会自动 resolve 到下一个可执行 leaf。
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    onClick={rollSpin}
+                    disabled={spinDisabled}
+                    className={
+                      "rounded-sm border px-4 py-2 text-sm font-semibold transition " +
+                      (spinDisabled
+                        ? "border-[var(--accent)] text-[var(--accent)] cursor-not-allowed"
+                        : "bg-violet-200 text-zinc-900 hover:bg-violet-100")
+                    }>
+                    {cooldown > 0
+                      ? `冷却中 ${cooldown}s`
+                      : spinning
+                      ? "Rolling..."
+                      : "Spin"}
+                  </button>
+
+                  <div className="rounded-sm border border-zinc-800 bg-zinc-950/40 px-4 py-2 text-sm text-zinc-300">
+                    Reroll = 再 Spin 一次
+                  </div>
+                </div>
+
+                <div className="mt-4 flex items-center justify-between rounded-sm border border-zinc-800 bg-zinc-950/50 px-3 py-2 text-xs text-zinc-400">
+                  <div>
+                    Spin 已用：
+                    <span className="font-semibold text-zinc-200">
+                      {rollsUsed}/3
+                    </span>
+                  </div>
+                  <div>
+                    {todayLog?.status === "accepted"
+                      ? "今日已锁定"
+                      : rollsUsed >= 3
+                      ? "已强制锁定最后结果"
+                      : "可 Accept 或 Reroll"}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Flip card */}
+            <div className="mt-6 rounded-md border border-zinc-800  bg-zinc-900/40 p-5">
+              <div className="flex items-end justify-between gap-4">
+                <div>
+                  <div className="text-xs text-zinc-500">今日任务</div>
+                  <div className="text-lg font-semibold">Roulette Card</div>
+                  <div className="mt-1 text-sm text-zinc-400">
+                    Spin 出来的就是“当次命运”。你只能 Accept 或 Reroll。
+                  </div>
+                </div>
+
+                {todayLog && (
+                  <div
+                    className={
+                      "rounded-full border px-3 py-1 text-xs " +
+                      statusBadgeClass(todayLog.status)
+                    }>
+                    status: {todayLog.status}
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-5">
+                <div
+                  key={flipKey}
+                  className={
+                    "relative overflow-hidden rounded-md border border-zinc-800 bg-zinc-950/50 p-5 shadow-sm " +
+                    "transition-transform duration-500"
+                  }
+                  style={{
+                    transform: spinning
+                      ? "rotateY(180deg) scale(0.98)"
+                      : "rotateY(0deg) scale(1)",
+                    transformStyle: "preserve-3d",
+                  }}>
+                  {spinning ? (
+                    <div className="text-center">
+                      <div className="text-xs uppercase tracking-widest text-zinc-500">
+                        rolling
+                      </div>
+                      <div className="mt-3 text-xl font-black text-violet-200">
+                        {fakeRollingTitle || "..."}
+                      </div>
+                      <div className="mt-3 text-sm text-zinc-400">
+                        命运正在翻牌…
+                      </div>
+                    </div>
+                  ) : lastRolledTask ? (
+                    <div>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="text-xl font-black">
+                          {lastRolledTask.title}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={
+                              "rounded-full border px-2 py-0.5 text-xs " +
+                              energyBadgeClass(lastRolledTask.energy)
+                            }>
+                            {lastRolledTask.energy}
+                          </span>
+                          <span className="rounded-full border border-zinc-800 bg-zinc-950 px-2 py-0.5 text-xs text-zinc-300">
+                            {formatDuration(lastRolledTask)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 text-sm text-zinc-300">
+                        {lastRolledTask.description}
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap gap-1">
+                        {uniq(lastRolledTask.tags)
+                          .slice(0, 12)
+                          .map((tag) => (
+                            <span
+                              key={tag}
+                              className="rounded-full border border-zinc-800 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-400">
+                              {tag}
+                            </span>
+                          ))}
+                      </div>
+
+                      <div className="mt-5 flex flex-wrap gap-2">
+                        <button
+                          onClick={() => acceptTask(lastRolledTask.id)}
+                          disabled={!canAccept}
+                          className={
+                            "rounded-sm px-4 py-2 text-sm font-semibold transition " +
+                            (!canAccept
+                              ? "cursor-not-allowed bg-zinc-700 text-zinc-300"
+                              : "text-zinc-900 hover:bg-zinc-100")
+                          }>
+                          Accept
+                        </button>
+
+                        <button
+                          onClick={markDone}
+                          className="rounded-sm bg-emerald-200 px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-emerald-100">
+                          Done
+                        </button>
+                      </div>
+
+                      {rollsUsed >= 3 && (
+                        <div className="mt-4 rounded-sm border border-amber-800/50 bg-amber-950/20 px-3 py-2 text-sm text-amber-200">
+                          已到第 3 次 Spin：命运已锁定，今日任务不可更改。
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center text-sm text-zinc-400">
+                      尚未 Spin。点击{" "}
+                      <span className="font-semibold text-zinc-200">Spin</span>{" "}
+                      开始。
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* rolled history */}
+              <div className="mt-5 rounded-md border border-zinc-800 bg-zinc-950/40 p-4">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-semibold text-zinc-200">
+                    今日 rolled 历史
+                  </div>
+                  <div className="text-xs text-zinc-500">
+                    {todayLog?.rolled?.length ?? 0} items
+                  </div>
+                </div>
+
+                {rolledHistoryTasks.length === 0 ? (
+                  <div className="mt-3 text-sm text-zinc-500">
+                    今日还没有抽到任何任务。
+                  </div>
+                ) : (
+                  <div className="mt-3 grid grid-cols-1 gap-2">
+                    {rolledHistoryTasks.map((t, idx) => (
+                      <div
+                        key={t.id + idx}
+                        className={
+                          "flex flex-col gap-1 rounded-sm border border-zinc-800 bg-zinc-950 px-3 py-2 " +
+                          (selectedTaskId === t.id
+                            ? "ring-2 ring-white/70"
+                            : "")
+                        }>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-sm font-semibold text-zinc-200">
+                            {idx + 1}. {t.title}
+                          </div>
+                          <span
+                            className={
+                              "rounded-full border px-2 py-0.5 text-[11px] " +
+                              energyBadgeClass(t.energy)
+                            }>
+                            {t.energy}
+                          </span>
+                        </div>
+
+                        <div className="text-xs text-zinc-500">{t.id}</div>
+
+                        <div className="mt-2 text-xs text-zinc-400">
+                          抽到 ≠ 选择。只有最后一次 / Accept 才算锁定。
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* STEP 4 */}
+            <div className="mt-6 rounded-md border border-zinc-800  bg-zinc-900/40 p-5">
+              <div className="text-xs text-zinc-500">STEP 4</div>
+              <div className="text-lg font-semibold">
+                执行任务 · 记录成果 · 写回文件
+              </div>
+              <div className="mt-1 text-sm text-zinc-400">
+                Done 后需要分别写回 YearLog + CompletionLog。
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="rounded-md border border-zinc-800 bg-zinc-950/40 p-4">
+                  <div className="text-sm font-semibold text-zinc-200">
+                    当前锁定任务（selected）
+                  </div>
+
+                  {selectedTask ? (
+                    <div className="mt-2">
+                      <div className="text-base font-black">
+                        {selectedTask.title}
+                      </div>
+                      <div className="mt-2 text-sm text-zinc-400">
+                        {selectedTask.description}
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <span
+                          className={
+                            "rounded-full border px-2 py-0.5 text-xs " +
+                            energyBadgeClass(selectedTask.energy)
+                          }>
+                          {selectedTask.energy}
+                        </span>
+                        <span className="rounded-full border border-zinc-800 bg-zinc-950 px-2 py-0.5 text-xs text-zinc-300">
+                          {formatDuration(selectedTask)}
+                        </span>
+                        <span className="rounded-full border border-zinc-800 bg-zinc-950 px-2 py-0.5 text-xs text-zinc-300">
+                          id: {selectedTask.id}
+                        </span>
+
+                        {isCompleted(selectedTask.id) && (
+                          <span className="rounded-full border border-emerald-700 bg-emerald-950/40 px-2 py-0.5 text-xs text-emerald-200">
+                            completed
+                          </span>
+                        )}
+                      </div>
+
+                      {todayLog?.status !== "accepted" && rollsUsed < 3 && (
+                        <div className="mt-3 text-xs text-zinc-500">
+                          注意：当前 selected 只是“最后一次 Spin 的结果”，还未
+                          Accept。
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mt-2 text-sm text-zinc-500">尚未 Spin</div>
+                  )}
+                </div>
+
+                <div className="rounded-md border border-zinc-800 bg-zinc-950/40 p-4">
+                  <div className="text-sm font-semibold text-zinc-200">
+                    成果（可选）
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-1 gap-3">
+                    <div>
+                      <label className="text-xs text-zinc-400">
+                        resultType
+                      </label>
+                      <select
+                        value={resultType}
+                        onChange={(e) => setResultType(e.target.value as any)}
+                        className="mt-1 w-full rounded-sm border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 outline-none">
+                        <option value="file">file</option>
+                        <option value="url">url</option>
+                        <option value="repo">repo</option>
+                        <option value="note">note</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-xs text-zinc-400">
+                        resultValue
+                      </label>
+                      <input
+                        value={resultValue}
+                        onChange={(e) => setResultValue(e.target.value)}
+                        placeholder="./writing/2026-02-13.md 或 https://..."
+                        className="mt-1 w-full rounded-sm border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs text-zinc-400">summary</label>
+                      <input
+                        value={resultSummary}
+                        onChange={(e) => setResultSummary(e.target.value)}
+                        placeholder='例如："写了800字短篇：雪夜空佛寺"'
+                        className="mt-1 w-full rounded-sm border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
                     <button
                       onClick={markDone}
-                      className="rounded-xl bg-emerald-200 px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-emerald-100">
-                      Done
+                      className="rounded-xs px-2 py-1 text-xs font-semibold text-teal-700 hover:text-[var(--accent)] border hover:cursor-pointer">
+                      标记 Done
+                    </button>
+
+                    <button
+                      onClick={saveToYearFile}
+                      className="rounded-xs px-2 py-1 text-xs font-semibold text-cyan-700 hover:text-[var(--accent)] border hover:cursor-pointer">
+                      写回年度文件
+                    </button>
+
+                    <button
+                      onClick={saveToCompletionFile}
+                      className="rounded-xs px-2 py-1 text-xs font-semibold text-lime-700 hover:text-[var(--accent)] border hover:cursor-pointer">
+                      写回 completion.json
                     </button>
                   </div>
 
-                  {rollsUsed >= 3 && (
-                    <div className="mt-4 rounded-xl border border-amber-800/50 bg-amber-950/20 px-3 py-2 text-sm text-amber-200">
-                      已到第 3 次 Spin：命运已锁定，今日任务不可更改。
-                    </div>
-                  )}
+                  <div className="mt-3 text-xs text-zinc-500">
+                    注意：Done 只是内存更新，必须写回文件才会保存。
+                  </div>
                 </div>
-              ) : (
-                <div className="text-center text-sm text-zinc-400">
-                  尚未 Spin。点击{" "}
-                  <span className="font-semibold text-zinc-200">Spin</span>{" "}
-                  开始。
+              </div>
+
+              <div className="mt-5 rounded-md border border-zinc-800 bg-zinc-950/40 p-4">
+                <div className="text-sm font-semibold text-zinc-200">
+                  Today raw JSON
                 </div>
-              )}
+                <pre className="mt-3 overflow-auto rounded-md border border-zinc-800 bg-zinc-950/60 p-4 text-xs text-zinc-300">
+                  {JSON.stringify(todayLog, null, 2)}
+                </pre>
+              </div>
             </div>
           </div>
+        )}
 
-          {/* rolled history */}
-          <div className="mt-5 rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold text-zinc-200">
-                今日 rolled 历史
-              </div>
-              <div className="text-xs text-zinc-500">
-                {todayLog?.rolled?.length ?? 0} items
-              </div>
+        {/* TIMELINE TAB */}
+        {activeTab === "timeline" && (
+          <div className="mt-6 rounded-md border border-zinc-800 bg-zinc-900/40 p-5">
+            <div className="text-lg font-semibold">Timeline View</div>
+            <div className="mt-1 text-sm text-zinc-400">
+              年度时间线（倒序）。
             </div>
 
-            {rolledHistoryTasks.length === 0 ? (
-              <div className="mt-3 text-sm text-zinc-500">
-                今日还没有抽到任何任务。
+            {!yearLog ? (
+              <div className="mt-4 rounded-sm border border-zinc-800 bg-zinc-950/40 p-4 text-sm text-zinc-400">
+                请先打开年度文件。
+              </div>
+            ) : timeline.length === 0 ? (
+              <div className="mt-4 rounded-sm border border-zinc-800 bg-zinc-950/40 p-4 text-sm text-zinc-400">
+                还没有任何记录。
               </div>
             ) : (
-              <div className="mt-3 grid grid-cols-1 gap-2">
-                {rolledHistoryTasks.map((t, idx) => (
-                  <div
-                    key={t.id + idx}
-                    className={
-                      "flex flex-col gap-1 rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 " +
-                      (selectedTaskId === t.id ? "ring-2 ring-white/70" : "")
-                    }>
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="text-sm font-semibold text-zinc-200">
-                        {idx + 1}. {t.title}
-                      </div>
-                      <span
-                        className={
-                          "rounded-full border px-2 py-0.5 text-[11px] " +
-                          energyBadgeClass(t.energy)
-                        }>
-                        {t.energy}
-                      </span>
-                    </div>
-
-                    <div className="text-xs text-zinc-500">{t.id}</div>
-
-                    <div className="mt-2 text-xs text-zinc-400">
-                      抽到 ≠ 选择。只有最后一次 / Accept 才算锁定。
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* STEP 4 */}
-        <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
-          <div className="text-xs text-zinc-500">STEP 4</div>
-          <div className="text-lg font-semibold">
-            执行任务 · 记录成果 · 写回文件
-          </div>
-          <div className="mt-1 text-sm text-zinc-400">
-            标记 Done 后，还需要点击“写回年度文件”才会真正保存。
-          </div>
-
-          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
-              <div className="text-sm font-semibold text-zinc-200">
-                当前锁定任务（selected）
-              </div>
-
-              {selectedTask ? (
-                <div className="mt-2">
-                  <div className="text-base font-black">
-                    {selectedTask.title}
-                  </div>
-                  <div className="mt-2 text-sm text-zinc-400">
-                    {selectedTask.description}
-                  </div>
-
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <span
-                      className={
-                        "rounded-full border px-2 py-0.5 text-xs " +
-                        energyBadgeClass(selectedTask.energy)
-                      }>
-                      {selectedTask.energy}
-                    </span>
-                    <span className="rounded-full border border-zinc-800 bg-zinc-950 px-2 py-0.5 text-xs text-zinc-300">
-                      {formatDuration(selectedTask)}
-                    </span>
-                    <span className="rounded-full border border-zinc-800 bg-zinc-950 px-2 py-0.5 text-xs text-zinc-300">
-                      id: {selectedTask.id}
-                    </span>
-                  </div>
-
-                  {todayLog?.status !== "accepted" && rollsUsed < 3 && (
-                    <div className="mt-3 text-xs text-zinc-500">
-                      注意：当前 selected 只是“最后一次 Spin 的结果”，还未
-                      Accept。
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="mt-2 text-sm text-zinc-500">尚未 Spin</div>
-              )}
-            </div>
-
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
-              <div className="text-sm font-semibold text-zinc-200">
-                成果（可选）
-              </div>
-
-              <div className="mt-3 grid grid-cols-1 gap-3">
-                <div>
-                  <label className="text-xs text-zinc-400">resultType</label>
-                  <select
-                    value={resultType}
-                    onChange={(e) => setResultType(e.target.value as any)}
-                    className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 outline-none">
-                    <option value="file">file</option>
-                    <option value="url">url</option>
-                    <option value="repo">repo</option>
-                    <option value="note">note</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-xs text-zinc-400">resultValue</label>
-                  <input
-                    value={resultValue}
-                    onChange={(e) => setResultValue(e.target.value)}
-                    placeholder="./writing/2026-02-13.md 或 https://..."
-                    className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs text-zinc-400">summary</label>
-                  <input
-                    value={resultSummary}
-                    onChange={(e) => setResultSummary(e.target.value)}
-                    placeholder='例如："写了800字短篇：雪夜空佛寺"'
-                    className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button
-                  onClick={markDone}
-                  className="rounded-xl bg-emerald-200 px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-emerald-100">
-                  标记 Done
-                </button>
-                <button
-                  onClick={saveToYearFile}
-                  className="rounded-xl bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-white">
-                  写回年度文件
-                </button>
-              </div>
-
-              <div className="mt-3 text-xs text-zinc-500">
-                注意：只有点击“写回年度文件”才会真正保存。
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Views */}
-        <div className="mt-8">
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setActiveTab("today")}
-              className={
-                "rounded-xl border px-4 py-2 text-sm font-semibold " +
-                (activeTab === "today"
-                  ? "border-white bg-white text-zinc-900"
-                  : "border-zinc-800 bg-zinc-950 text-zinc-200 hover:bg-zinc-900")
-              }>
-              Today
-            </button>
-            <button
-              onClick={() => setActiveTab("week")}
-              className={
-                "rounded-xl border px-4 py-2 text-sm font-semibold " +
-                (activeTab === "week"
-                  ? "border-white bg-white text-zinc-900"
-                  : "border-zinc-800 bg-zinc-950 text-zinc-200 hover:bg-zinc-900")
-              }>
-              Week
-            </button>
-            <button
-              onClick={() => setActiveTab("timeline")}
-              className={
-                "rounded-xl border px-4 py-2 text-sm font-semibold " +
-                (activeTab === "timeline"
-                  ? "border-white bg-white text-zinc-900"
-                  : "border-zinc-800 bg-zinc-950 text-zinc-200 hover:bg-zinc-900")
-              }>
-              Timeline
-            </button>
-          </div>
-
-          {activeTab === "today" && (
-            <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
-              <div className="text-lg font-semibold">Today View</div>
-              <div className="mt-1 text-sm text-zinc-400">
-                显示今日节点完整 JSON。
-              </div>
-
-              <pre className="mt-4 overflow-auto rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4 text-xs text-zinc-300">
-                {JSON.stringify(todayLog, null, 2)}
-              </pre>
-            </div>
-          )}
-
-          {activeTab === "week" && (
-            <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
-              <div className="text-lg font-semibold">Week View</div>
-              <div className="mt-1 text-sm text-zinc-400">本周每日状态。</div>
-
               <div className="mt-4 grid grid-cols-1 gap-3">
-                {weekLogs.map(({ date, log }) => {
-                  const selected = log?.selected
+                {timeline.map(({ date, log }) => {
+                  const selected = log.selected
                     ? taskById.get(log.selected)
                     : undefined;
+
+                  const buddhistDate = formatISODateToBuddhist(date);
+
                   return (
                     <div
                       key={date}
-                      className="flex flex-col gap-2 rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4 md:flex-row md:items-center md:justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="text-sm font-semibold text-zinc-200">
-                          {date}
-                        </div>
-                        {log ? (
+                      className="rounded-md border border-zinc-800 bg-zinc-950/40 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <div className="text-sm font-semibold text-zinc-200">
+                            {buddhistDate}
+                          </div>
                           <span
                             className={
                               "rounded-full border px-2 py-0.5 text-xs " +
@@ -1193,117 +1514,216 @@ export default function App() {
                             }>
                             {log.status}
                           </span>
-                        ) : (
-                          <span className="rounded-full border border-zinc-800 bg-zinc-950 px-2 py-0.5 text-xs text-zinc-500">
-                            empty
+                          <span
+                            className={
+                              "rounded-full border px-2 py-0.5 text-xs " +
+                              energyBadgeClass(log.energy)
+                            }>
+                            {log.energy}
                           </span>
-                        )}
+                        </div>
+
+                        <div className="text-xs text-zinc-500">
+                          spins: {log.rollsUsed ?? 0}
+                        </div>
                       </div>
 
-                      <div className="text-sm text-zinc-400">
-                        {selected ? selected.title : log ? "(无选择)" : ""}
+                      <div className="mt-2 text-sm text-zinc-300">
+                        {selected ? selected.title : "(无选择)"}
                       </div>
 
-                      <div className="text-xs text-zinc-500">
-                        {log?.result?.summary ? log.result.summary : ""}
-                      </div>
+                      {log.result?.summary && (
+                        <div className="mt-2 text-xs text-zinc-500">
+                          {log.result.summary}
+                        </div>
+                      )}
+
+                      {log.result?.value && (
+                        <div className="mt-2 text-xs text-zinc-400">
+                          <span className="opacity-60">result:</span>{" "}
+                          {log.result.value}
+                        </div>
+                      )}
+
+                      <details className="mt-3">
+                        <summary className="cursor-pointer text-xs text-zinc-400 hover:text-zinc-200">
+                          raw json
+                        </summary>
+                        <pre className="mt-2 overflow-auto rounded-sm border border-zinc-800 bg-zinc-950/60 p-3 text-xs text-zinc-300">
+                          {JSON.stringify(log, null, 2)}
+                        </pre>
+                      </details>
                     </div>
                   );
                 })}
               </div>
-            </div>
-          )}
+            )}
+          </div>
+        )}
 
-          {activeTab === "timeline" && (
-            <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
-              <div className="text-lg font-semibold">Timeline View</div>
-              <div className="mt-1 text-sm text-zinc-400">
-                年度时间线（倒序）。
+        {/* TASK POOL TAB */}
+        {activeTab === "pool" && (
+          <div className="mt-6 rounded-md border border-zinc-800 bg-zinc-900/40 p-5">
+            <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+              <div>
+                <div className="text-lg font-semibold">Task Pool</div>
+                <div className="mt-1 text-sm text-zinc-400">
+                  任务池一览（按 energy / parent / order 排序）。
+                </div>
               </div>
 
-              {timeline.length === 0 ? (
-                <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-950/40 p-4 text-sm text-zinc-400">
-                  还没有任何记录。
+              <div className="flex flex-wrap gap-2">
+                <div className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
+                  total:{" "}
+                  <span className="text-zinc-100">{poolStats.total}</span>
                 </div>
-              ) : (
-                <div className="mt-4 grid grid-cols-1 gap-3">
-                  {timeline.map(({ date, log }) => {
-                    const selected = log.selected
-                      ? taskById.get(log.selected)
-                      : undefined;
-                    return (
-                      <div
-                        key={date}
-                        className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <div className="text-sm font-semibold text-zinc-200">
-                              {date}
-                            </div>
-                            <span
-                              className={
-                                "rounded-full border px-2 py-0.5 text-xs " +
-                                statusBadgeClass(log.status)
-                              }>
-                              {log.status}
-                            </span>
-                            <span
-                              className={
-                                "rounded-full border px-2 py-0.5 text-xs " +
-                                energyBadgeClass(log.energy)
-                              }>
-                              {log.energy}
-                            </span>
-                          </div>
-
-                          <div className="text-xs text-zinc-500">
-                            spins: {log.rollsUsed ?? 0}
-                          </div>
-                        </div>
-
-                        <div className="mt-2 text-sm text-zinc-300">
-                          {selected ? selected.title : "(无选择)"}
-                        </div>
-
-                        {log.result?.summary && (
-                          <div className="mt-2 text-xs text-zinc-500">
-                            {log.result.summary}
-                          </div>
-                        )}
-
-                        {log.result?.value && (
-                          <div className="mt-2 text-xs text-zinc-400">
-                            <span className="opacity-60">result:</span>{" "}
-                            {log.result.value}
-                          </div>
-                        )}
-
-                        <details className="mt-3">
-                          <summary className="cursor-pointer text-xs text-zinc-400 hover:text-zinc-200">
-                            raw json
-                          </summary>
-                          <pre className="mt-2 overflow-auto rounded-xl border border-zinc-800 bg-zinc-950/60 p-3 text-xs text-zinc-300">
-                            {JSON.stringify(log, null, 2)}
-                          </pre>
-                        </details>
-                      </div>
-                    );
-                  })}
+                <div className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
+                  completed:{" "}
+                  <span className="text-zinc-100">{poolStats.completed}</span>
                 </div>
-              )}
+                <div className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
+                  stages done:{" "}
+                  <span className="text-zinc-100">
+                    {poolStats.stageCompleted}
+                  </span>
+                </div>
+              </div>
             </div>
-          )}
-        </div>
+
+            <div className="mt-5 grid grid-cols-1 gap-2">
+              {poolTasksSorted.map((t) => {
+                const completed = isCompleted(t.id);
+                const stageDone = !!completionLog.completedStageIds[t.id];
+                const blocked = !prerequisitesMet(t.id);
+
+                return (
+                  <div
+                    key={t.id}
+                    className={
+                      "rounded-md border bg-zinc-950/40 p-4 " +
+                      (completed
+                        ? "border-emerald-800/60"
+                        : stageDone
+                        ? "border-sky-800/60"
+                        : blocked
+                        ? "border-amber-800/50"
+                        : "border-zinc-800")
+                    }>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="text-sm font-semibold text-zinc-200">
+                        {t.title}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={
+                            "rounded-full border px-2 py-0.5 text-xs " +
+                            energyBadgeClass(t.energy)
+                          }>
+                          {t.energy}
+                        </span>
+
+                        <span className="rounded-full border border-zinc-800 bg-zinc-950 px-2 py-0.5 text-xs text-zinc-300">
+                          {formatDuration(t)}
+                        </span>
+
+                        {t.type && (
+                          <span className="rounded-full border border-zinc-800 bg-zinc-950 px-2 py-0.5 text-xs text-zinc-400">
+                            {t.type}
+                          </span>
+                        )}
+
+                        {completed && (
+                          <span className="rounded-full border border-emerald-700 bg-emerald-950/40 px-2 py-0.5 text-xs text-emerald-200">
+                            completed
+                          </span>
+                        )}
+
+                        {stageDone && (
+                          <span className="rounded-full border border-sky-700 bg-sky-950/40 px-2 py-0.5 text-xs text-sky-200">
+                            stage done
+                          </span>
+                        )}
+
+                        {blocked && !completed && (
+                          <span className="rounded-full border border-amber-700 bg-amber-950/40 px-2 py-0.5 text-xs text-amber-200">
+                            blocked
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mt-2 text-xs text-zinc-500">{t.id}</div>
+
+                    <div className="mt-2 text-sm text-zinc-400">
+                      {t.description}
+                    </div>
+
+                    {(t.parentId || t.order != null || t.stageId) && (
+                      <div className="mt-3 flex flex-wrap gap-2 text-xs text-zinc-500">
+                        {t.parentId && (
+                          <div className="rounded-full border border-zinc-800 bg-zinc-950 px-2 py-0.5">
+                            parent:{" "}
+                            <span className="text-zinc-300">{t.parentId}</span>
+                          </div>
+                        )}
+                        {t.stageId && (
+                          <div className="rounded-full border border-zinc-800 bg-zinc-950 px-2 py-0.5">
+                            stage:{" "}
+                            <span className="text-zinc-300">{t.stageId}</span>
+                          </div>
+                        )}
+                        {t.order != null && (
+                          <div className="rounded-full border border-zinc-800 bg-zinc-950 px-2 py-0.5">
+                            order:{" "}
+                            <span className="text-zinc-300">{t.order}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {t.prerequisites && t.prerequisites.length > 0 && (
+                      <div className="mt-3 text-xs text-zinc-500">
+                        prerequisites:{" "}
+                        <span className="text-zinc-300">
+                          {t.prerequisites.join(", ")}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="mt-3 flex flex-wrap gap-1">
+                      {uniq(t.tags)
+                        .slice(0, 16)
+                        .map((tag) => (
+                          <span
+                            key={tag}
+                            className="rounded-full border border-zinc-800 bg-zinc-950 px-2 py-0.5 text-[11px] text-zinc-400">
+                            {tag}
+                          </span>
+                        ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="mt-10 text-xs text-zinc-500">
           <div>机制：Spin 出来的任务不会从任务池移除（可能重复）。</div>
-          <div>Accept 后今日锁定；若 3 次用完则自动锁定最后结果。</div>
+          <div>
+            Accept 后今日锁定；若 3 次用完则自动锁定最后结果（自动 Accept）。
+          </div>
+          <div>
+            Root/Stage 任务会自动 resolve 到第一个未完成且 prerequisites 满足的
+            leaf。
+          </div>
         </div>
       </div>
 
       {toast && (
         <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
-          <div className="rounded-2xl border border-zinc-700 bg-zinc-950/90 px-4 py-2 text-sm text-zinc-200 shadow-lg">
+          <div className="rounded-md border border-zinc-700 bg-zinc-950/90 px-4 py-2 text-sm text-zinc-200 shadow-lg">
             {toast}
           </div>
         </div>
