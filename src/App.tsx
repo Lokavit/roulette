@@ -240,7 +240,8 @@ export default function App() {
 
   // result form
   const [resultType, setResultType] =
-    useState<DayLog["result"]["type"]>("file");
+    useState<NonNullable<DayLog["result"]>["type"]>("file");
+
   const [resultValue, setResultValue] = useState<string>("");
   const [resultSummary, setResultSummary] = useState<string>("");
 
